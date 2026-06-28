@@ -1,0 +1,9 @@
+export const STATUS = {
+  ONLINE: "ONLINE",
+
+  OFFLINE: "OFFLINE",
+
+  WARNING: "WARNING",
+
+  DANGER: "DANGER"
+};

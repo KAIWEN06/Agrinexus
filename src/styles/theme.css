@@ -1,0 +1,57 @@
+@theme {
+
+  /* Background */
+
+  --background:#F8FAFC;
+  --foreground:#0F172A;
+
+  /* Primary */
+
+  --primary:#2E7D32;
+  --primary-foreground:#FFFFFF;
+
+  /* Secondary */
+
+  --secondary:#F1F5F9;
+  --secondary-foreground:#0F172A;
+
+  /* Muted */
+
+  --muted:#E2E8F0;
+
+  /* Success */
+
+  --success:#22C55E;
+
+  /* info */
+    --info:#3B82F6;
+
+  /* Danger */
+
+  --destructive:#EF4444;
+
+  --destructive-foreground:#FFFFFF;
+
+  /* Border */
+
+  --border:#E2E8F0;
+
+  /* Radius */
+
+  --radius-button:12px;
+
+  /* Card */
+
+  --card:#FFFFFF;
+
+  --border:#E2E8F0;
+
+  --foreground:#0F172A;
+
+  --muted-foreground:#64748B;
+
+  --radius-card:16px;
+
+  --shadow-card:0 8px 24px rgba(15,23,42,.06);
+
+}
