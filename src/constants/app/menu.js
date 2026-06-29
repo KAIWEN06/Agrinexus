@@ -6,27 +6,23 @@ export const menu = [
     path: "/dashboard",
     icon: LayoutDashboard
   },
-
   {
-    title: "Riwayat",
+    title: "History",
     path: "/history",
     icon: History
   },
-
   {
-    title: "Notifikasi",
+    title: "Notifications",
     path: "/notifications",
     icon: Bell
   },
-
   {
-    title: "Pengaturan",
+    title: "Settings",
     path: "/settings",
     icon: Settings
   },
-
   {
-    title: "Profil",
+    title: "Profile",
     path: "/profile",
     icon: User
   }
