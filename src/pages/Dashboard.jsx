@@ -124,7 +124,7 @@ export default function Dashboard() {
           <StatisticCard
             title="Kelembapan Tanah"
             value={statistics.soil.value}
-            unit="%"
+            unit="ADC"
             icon={Sprout}
             status={statistics.soil.status}
             trend={statistics.soil.trend}
