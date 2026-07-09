@@ -12,13 +12,13 @@ import { cn } from "../../../utils/cn";
 export default function SensorCard({
   name,
   location,
-  status = "ONLINE",
+  status = "Tidak Aktif",
   value,
   unit = "",
   lastUpdate,
   className,
 }) {
-  const online = status === "ONLINE";
+  const active = status === "Aktif";
 
   return (
     <Card
@@ -56,7 +56,7 @@ export default function SensorCard({
           </div>
         </div>
 
-        <Badge variant={online ? "success" : "danger"}>
+        <Badge variant={active ? "success" : "danger"}>
           {status}
         </Badge>
       </div>
@@ -82,7 +82,7 @@ export default function SensorCard({
           <span>{lastUpdate}</span>
         </div>
 
-        {online ? (
+        {active ? (
           <CircleCheck
             size={18}
             className="text-green-600"

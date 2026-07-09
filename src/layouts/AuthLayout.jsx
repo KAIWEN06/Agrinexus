@@ -87,11 +87,11 @@ export default function AuthLayout() {
 
               <h1 className="mt-8 text-6xl font-bold leading-tight tracking-tight text-white">
 
-                Smart Plantation
+                AGRINEXUS
 
                 <br />
 
-                Monitoring
+                PKM-PI
 
               </h1>
 
