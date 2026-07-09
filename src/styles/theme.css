@@ -26,15 +26,16 @@
   /* info */
     --info:#3B82F6;
 
+  /* Warning */
+
+  --warning:#F59E0B;
+
   /* Danger */
 
   --destructive:#EF4444;
 
   --destructive-foreground:#FFFFFF;
 
-  /* Border */
-
-  --border:#E2E8F0;
 
   /* Radius */
 
@@ -45,8 +46,6 @@
   --card:#FFFFFF;
 
   --border:#E2E8F0;
-
-  --foreground:#0F172A;
 
   --muted-foreground:#64748B;
 

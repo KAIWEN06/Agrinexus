@@ -1,79 +1,35 @@
 import {
   createContext,
   useCallback,
+  useEffect,
   useMemo,
   useState,
 } from "react";
 
-import {
-  dashboardStatistics,
-  healthScore,
-  temperatureData,
-  humidityData,
-  soilMoistureData,
-  lightData,
-  notifications,
-  sensorNodes,
-} from "../data/dashboard";
-
-import { historyData } from "../data/history";
+import dashboardService from "../services/dashboardService";
 
 export const DashboardContext = createContext(null);
 
 export function DashboardProvider({ children }) {
-  const [dashboard, setDashboard] = useState({
-    statistics: dashboardStatistics,
-
-    health: healthScore,
-
-    charts: {
-      temperature: temperatureData,
-      humidity: humidityData,
-      soil: soilMoistureData,
-      light: lightData,
-    },
-
-    notifications,
-
-    sensorNodes,
-
-    history: historyData,
-  });
+  const [dashboard, setDashboard] = useState(null);
 
   const [loading, setLoading] = useState(false);
 
   const [error, setError] = useState(null);
 
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  const updateDashboard = useCallback((payload) => {
-    setDashboard((prev) => ({
-      ...prev,
-      ...payload,
-    }));
-
-    setLastUpdated(new Date());
-  }, []);
-
-  const refreshDashboard = useCallback(async () => {
+  /**
+   * Mengambil data dashboard.
+   */
+  const loadDashboard = useCallback(async () => {
     try {
       setLoading(true);
-
       setError(null);
 
-      /*
-       * =====================================
-       * FASTAPI
-       * =====================================
-       *
-       * const response =
-       * await dashboardService.getDashboard();
-       *
-       * updateDashboard(response.data);
-       *
-       */
+      const data = await dashboardService.getDashboard();
 
-      console.log("Dashboard refreshed");
+      setDashboard(data);
 
       setLastUpdated(new Date());
     } catch (err) {
@@ -83,7 +39,30 @@ export function DashboardProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [updateDashboard]);
+  }, []);
+
+  /**
+   * Memperbarui sebagian data dashboard.
+   */
+  const updateDashboard = useCallback((payload) => {
+    setDashboard((prev) => ({
+      ...prev,
+      ...payload,
+    }));
+
+    setLastUpdated(new Date());
+  }, []);
+
+  /**
+   * Refresh dashboard.
+   */
+  const refreshDashboard = useCallback(async () => {
+    await loadDashboard();
+  }, [loadDashboard]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   const value = useMemo(
     () => ({
@@ -94,8 +73,6 @@ export function DashboardProvider({ children }) {
       error,
 
       lastUpdated,
-
-      setDashboard,
 
       updateDashboard,
 

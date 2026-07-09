@@ -19,16 +19,16 @@ export const dashboardStatistics = {
 
   soil: {
     value: 63,
-    status: "Healthy",
+    status: "Sehat",
     trend: 1,
     trendLabel: "+3%"
   },
 
   light: {
     value: 12450,
-    status: "Good",
+    status: "Baik",
     trend: 0,
-    trendLabel: "No Change"
+    trendLabel: "Tidak Ada Perubahan"
   }
 };
 
@@ -38,8 +38,8 @@ export const dashboardStatistics = {
 
 export const healthScore = {
   score: 92,
-  status: "Healthy",
-  description: "Optimal Environment"
+  status: "Sehat",
+  description: "Kondisi perkebunan optimal"
 };
 
 /* ===========================================================
@@ -102,23 +102,23 @@ export const notifications = [
   {
     id: 1,
     type: "warning",
-    title: "Soil Moisture Low",
-    message: "Soil moisture has dropped below the minimum threshold.",
-    time: "2 minutes ago"
+    title: "Kelembapan Tanah Rendah",
+    message: "Kelembapan tanah berada di bawah batas minimum.",
+    time: "2 menit yang lalu"
   },
   {
     id: 2,
     type: "success",
-    title: "Environment Stable",
-    message: "All monitored parameters are within the optimal range.",
-    time: "15 minutes ago"
+    title: "Kondisi Lingkungan Stabil",
+    message: "Seluruh parameter yang dipantau berada dalam kondisi optimal.",
+    time: "15 menit yang lalu"
   },
   {
     id: 3,
     type: "info",
-    title: "New Sensor Connected",
-    message: "Node-03 has successfully connected to the network.",
-    time: "30 minutes ago"
+    title: "Sensor Baru Terhubung",
+    message: "Node-03 berhasil terhubung ke jaringan.",
+    time: "30 menit yang lalu"
   }
 ];
 
@@ -134,7 +134,7 @@ export const sensorNodes = [
     status: "ONLINE",
     value: 29,
     unit: "°C",
-    lastUpdate: "1 minute ago"
+    lastUpdate: "1 menit yang lalu"
   },
   {
     id: 2,
@@ -143,7 +143,7 @@ export const sensorNodes = [
     status: "ONLINE",
     value: 81,
     unit: "%",
-    lastUpdate: "30 seconds ago"
+    lastUpdate: "30 detik yang lalu"
   },
   {
     id: 3,
@@ -152,6 +152,79 @@ export const sensorNodes = [
     status: "OFFLINE",
     value: "-",
     unit: "",
-    lastUpdate: "10 minutes ago"
+    lastUpdate: "10 menit yang lalu"
   }
 ];
+
+/* ===========================================================
+   RAIN STATUS
+=========================================================== */
+
+export const rainStatus = {
+  status: "Tidak Hujan",
+  intensity: "-",
+  updatedAt: "29 Jun 2026 14:35"
+};
+
+/* ===========================================================
+   SENSOR HUJAN
+=========================================================== */
+
+export const rainHistory = [
+  {
+    time: "08:00",
+    rain: 0
+  },
+  {
+    time: "09:00",
+    rain: 0
+  },
+  {
+    time: "10:00",
+    rain: 1
+  },
+  {
+    time: "11:00",
+    rain: 1
+  },
+  {
+    time: "12:00",
+    rain: 0
+  },
+  {
+    time: "13:00",
+    rain: 0
+  },
+  {
+    time: "14:00",
+    rain: 1
+  }
+];
+
+/* ===========================================================
+   DASHBOARD OBJECT
+=========================================================== */
+
+const dashboard = {
+  statistics: dashboardStatistics,
+
+  health: healthScore,
+
+  charts: {
+    temperature: temperatureData,
+    humidity: humidityData,
+    soil: soilMoistureData,
+    light: lightData,
+    rain: rainHistory
+  },
+
+  panel: {
+    rain: rainStatus
+  },
+
+  notifications,
+
+  sensorNodes
+};
+
+export default dashboard;

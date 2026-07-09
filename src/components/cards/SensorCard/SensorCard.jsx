@@ -64,7 +64,7 @@ export default function SensorCard({
       {/* Value */}
       <div className="mt-6">
         <p className="text-sm text-[var(--text-secondary)]">
-          Latest Reading
+          Terakhir diperbarui
         </p>
 
         <h2 className="mt-2 text-3xl font-bold text-[var(--foreground)]">

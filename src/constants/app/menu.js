@@ -2,27 +2,27 @@ import { LayoutDashboard, History, Bell, Settings, User } from "lucide-react";
 
 export const menu = [
   {
-    title: "Dashboard",
+    title: "Beranda",
     path: "/dashboard",
     icon: LayoutDashboard
   },
   {
-    title: "History",
+    title: "Riwayat",
     path: "/history",
     icon: History
   },
   {
-    title: "Notifications",
+    title: "Nonifikasi",
     path: "/notifications",
     icon: Bell
   },
   {
-    title: "Settings",
+    title: "Setingan",
     path: "/settings",
     icon: Settings
   },
   {
-    title: "Profile",
+    title: "Profil",
     path: "/profile",
     icon: User
   }

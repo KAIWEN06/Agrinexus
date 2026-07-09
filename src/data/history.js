@@ -14,7 +14,7 @@ export const historyData = [
 
     health: 92,
 
-    status: "Healthy",
+    status: "Optimal",
     badge: "success",
 
     timestamp: "28 Jun 2026 10:20"
@@ -31,7 +31,7 @@ export const historyData = [
 
     health: 89,
 
-    status: "Healthy",
+    status: "Optimal",
     badge: "success",
 
     timestamp: "28 Jun 2026 10:30"
@@ -48,7 +48,7 @@ export const historyData = [
 
     health: 73,
 
-    status: "Warning",
+    status: "Perlu Perhatian",
     badge: "warning",
 
     timestamp: "28 Jun 2026 10:40"
@@ -65,7 +65,7 @@ export const historyData = [
 
     health: 55,
 
-    status: "Critical",
+    status: "Kritis",
     badge: "danger",
 
     timestamp: "28 Jun 2026 10:50"
@@ -82,7 +82,7 @@ export const historyData = [
 
     health: 95,
 
-    status: "Healthy",
+    status: "Optimal",
     badge: "success",
 
     timestamp: "28 Jun 2026 11:00"
@@ -99,7 +99,7 @@ export const historyData = [
 
     health: 78,
 
-    status: "Warning",
+    status: "Perlu Perhatian",
     badge: "warning",
 
     timestamp: "28 Jun 2026 11:10"

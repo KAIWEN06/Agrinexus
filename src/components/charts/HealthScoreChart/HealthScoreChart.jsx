@@ -15,7 +15,7 @@ export default function HealthScoreChart({
 }) {
   const data = [
     {
-      name: "Health Score",
+      name: "Skor Kesehatan",
       value: score,
       fill: "#2E7D32",
     },
@@ -24,18 +24,18 @@ export default function HealthScoreChart({
   const getStatus = () => {
     if (score >= 85)
       return {
-        text: "Healthy",
+        text: "Sehat",
         variant: "success",
       };
 
     if (score >= 70)
       return {
-        text: "Good",
+        text: "Baik",
         variant: "warning",
       };
 
     return {
-      text: "Critical",
+      text: "Kritis",
       variant: "danger",
     };
   };
@@ -52,15 +52,15 @@ export default function HealthScoreChart({
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold">
-          Health Score
+          Skor Kesehatan
         </h2>
 
         <p className="text-sm text-[var(--text-secondary)]">
-          Overall Plantation Health
+          Kondisi Keseluruhan Perkebunan
         </p>
       </div>
 
-      {/* Chart */}
+      {/* Grafik */}
       <div className="relative h-72">
         <ResponsiveContainer
           width="100%"
@@ -93,7 +93,6 @@ export default function HealthScoreChart({
           className="
             absolute
             inset-0
-
             flex
             flex-col
             items-center

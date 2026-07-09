@@ -7,7 +7,7 @@ import { cn } from "../../../utils/cn";
 
 export default function HealthScoreCard({
   score = 0,
-  status = "Unknown",
+  status = "Tidak Diketahui",
   description = "",
   className,
 }) {
@@ -28,7 +28,7 @@ export default function HealthScoreCard({
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-[var(--text-secondary)]">
-            Health Score
+            Indeks Kesehatan Perkebunan
           </p>
 
           <h2 className="mt-2 text-4xl font-bold text-[var(--foreground)]">
@@ -64,9 +64,11 @@ export default function HealthScoreCard({
           {status}
         </Badge>
 
-        <span className="text-sm text-[var(--text-secondary)]">
-          {description}
-        </span>
+        {description && (
+          <span className="text-sm text-[var(--text-secondary)]">
+            {description}
+          </span>
+        )}
       </div>
     </Card>
   );

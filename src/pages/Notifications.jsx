@@ -1,324 +1,316 @@
-import { useMemo, useState } from "react";
-import {
-  CheckCheck,
-  Trash2,
-  Check,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Check, CheckCheck, Trash2 } from "lucide-react";
 
 import PageHeader from "../components/common/PageHeader";
 import SearchBox from "../components/common/SearchBox";
-
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Select from "../components/ui/Select";
 import Badge from "../components/ui/Badge";
-
 import NotificationCard from "../components/cards/NotificationCard";
-
-import { notifications } from "../data/notifications";
+import { useNotification } from "../contexts/NotificationContext";
 
 export default function Notifications() {
+  const notificationTypeLabel = {
+  warning: "Peringatan",
+  critical: "Kritis",
+  success: "Normal",
+  info: "Informasi",
+};
+
+  const {
+    notifications,
+    markAsRead,
+    markAllAsRead,
+    removeNotification,
+    clearNotifications,
+  } = useNotification();
 
   const [search, setSearch] = useState("");
-
   const [filter, setFilter] = useState("all");
+  const [selectedId, setSelectedId] = useState(null);
+  const [showDetail, setShowDetail] = useState(false);
 
-  const [selected, setSelected] = useState(
-    notifications[0] ?? null
-  );
+  useEffect(() => {
+    if (notifications.length > 0 && selectedId === null) {
+      setSelectedId(notifications[0].id);
+    }
+
+    if (notifications.length === 0) {
+      setSelectedId(null);
+      setShowDetail(false);
+    }
+  }, [notifications, selectedId]);
 
   const filteredNotifications = useMemo(() => {
-
     return notifications.filter((item) => {
-
       const keyword =
         item.title
           .toLowerCase()
           .includes(search.toLowerCase()) ||
 
-        item.message
+        (item.message ?? "")
           .toLowerCase()
           .includes(search.toLowerCase()) ||
 
-        item.node
+        (item.node ?? "")
           .toLowerCase()
           .includes(search.toLowerCase());
 
       const status =
         filter === "all"
           ? true
-          : item.status.toLowerCase() === filter.toLowerCase();
+          : filter === "belum dibaca"
+            ? item.unread
+            : !item.unread;
 
       return keyword && status;
-
     });
+  }, [
+    notifications,
+    search,
+    filter,
+  ]);
 
-  }, [search, filter]);
+  const selected = useMemo(() => {
+    return notifications.find((item) => item.id === selectedId) ?? null;
+  }, [notifications, selectedId]);
 
   return (
-
     <>
-
       <PageHeader
-        title="Notifications"
-        description="Monitor every important event from your plantation."
+        title="Notifikasi"
+        description="Pantau seluruh aktivitas penting dari sistem monitoring perkebunan."
         action={
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+            <Button
+              startContent={<CheckCheck size={18} />}
+              onClick={markAllAsRead}
+              className="w-full sm:w-auto"
+            >
+              Tandai Semua Dibaca
+            </Button>
 
-          <Button
-            startContent={<CheckCheck size={18} />}
-          >
-            Mark All Read
-          </Button>
-
+            <Button
+              variant="outline"
+              startContent={<Trash2 size={18} />}
+              className="w-full sm:w-auto"
+              onClick={() => {
+                clearNotifications();
+                setSelectedId(null);
+                setShowDetail(false);
+              }}
+            >
+              Hapus Semua
+            </Button>
+          </div>
         }
       />
 
-      <div className="mb-8 grid gap-4 lg:grid-cols-2">
-
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
         <SearchBox
           value={search}
-          onChange={(e) =>
-            setSearch(e.target.value)
-          }
+          onChange={(e) => setSearch(e.target.value)}
           onClear={() => setSearch("")}
-          placeholder="Search notification..."
+          placeholder="Cari notifikasi..."
         />
 
-        <Select
-          value={filter}
-          onChange={(e) =>
-            setFilter(e.target.value)
-          }
-          options={[
-            {
-              label: "All",
-              value: "all",
-            },
-            {
-              label: "Belum Dibaca",
-              value: "belum dibaca",
-            },
-            {
-              label: "Sudah Dibaca",
-              value: "sudah dibaca",
-            },
-          ]}
-        />
+      <Select
+        value={filter}
+        onValueChange={setFilter}
+        placeholder="Status Notifikasi"
+      >
 
+        <Select.Item value="all">
+          Semua
+        </Select.Item>
+
+        <Select.Item value="belum dibaca">
+          Belum Dibaca
+        </Select.Item>
+
+        <Select.Item value="sudah dibaca">
+          Sudah Dibaca
+        </Select.Item>
+
+      </Select>
       </div>
 
-      {/* ===========================
-          Master Detail Layout
-      =========================== */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+        {/* ===============================
+            LIST NOTIFIKASI
+        =============================== */}
+        <div
+          className={`
+            space-y-4
+            py-2
+            xl:col-span-2
+            xl:h-[calc(100dvh-180px)]
+            xl:overflow-y-auto
+            xl:pr-3
+            scrollbar-hide
+          `}
+          style={{
+            msOverflowStyle: 'none',  /* IE dan Edge */
+            scrollbarWidth: 'none'    /* Firefox */
+          }}
+        >
+          {filteredNotifications.length > 0 ? (
+            filteredNotifications.map((notification) => (
+              <div
+                key={notification.id}
+                className="cursor-pointer"
+                onClick={() => {
+                  setSelectedId(notification.id);
+                  setShowDetail(true);
+                  if (notification.unread) {
+                    markAsRead(notification.id);
+                  }
+                }}
+              >
+                <NotificationCard
+                  {...notification}
+                  className={
+                    selectedId === notification.id
+                      ? "ring-2 ring-[var(--primary)]"
+                      : ""
+                  }
+                />
+              </div>
+            ))
+          ) : (
+            <Card className="flex h-60 items-center justify-center">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                  Tidak Ada Notifikasi
+                </h3>
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  Tidak ditemukan notifikasi yang sesuai.
+                </p>
+              </div>
+            </Card>
+          )}
+        </div>
 
-      <div className="grid gap-6 xl:grid-cols-5">
-        {/* ======================================
-          Notification List
-      ====================================== */}
+        {/* ===============================
+            DETAIL NOTIFIKASI
+        =============================== */}
+        <div
+          className={`
+            xl:col-span-3
+            ${showDetail ? "block" : "hidden xl:block"}
+          `}
+        >
+          {selected ? (
+            <Card className="h-full p-5 sm:p-6 lg:p-8">
+              {/* Mobile Back Button */}
+              <div className="mb-6 xl:hidden">
+                <Button
+                  variant="outline"
+                  startContent={<ArrowLeft size={18} />}
+                  onClick={() => setShowDetail(false)}
+                >
+                  Kembali
+                </Button>
+              </div>
 
-      <div className="space-y-4 xl:col-span-2">
-
-        {filteredNotifications.length > 0 ? (
-
-          filteredNotifications.map((notification) => (
-
-            <div
-              key={notification.id}
-              onClick={() => setSelected(notification)}
-              className="cursor-pointer"
-            >
-              <NotificationCard
-                {...notification}
-                className={
-                  selected?.id === notification.id
-                    ? "ring-2 ring-[var(--primary)]"
-                    : ""
-                }
-              />
-            </div>
-
-          ))
-
-        ) : (
-
-          <Card className="flex h-60 items-center justify-center">
-
-            <div className="text-center">
-
-              <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                Tidak ada notifikasi
-              </h3>
-
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Tidak ditemukan notifikasi yang sesuai.
-              </p>
-
-            </div>
-
-          </Card>
-
-        )}
-
-      </div>
-            {/* ======================================
-          Notification Detail
-      ====================================== */}
-
-      <div className="xl:col-span-3">
-
-        {selected ? (
-
-          <Card className="h-full p-8">
-
-            {/* Header */}
-
-            <div className="flex items-start justify-between gap-6">
-
-              <div>
-
-                <h2 className="text-2xl font-bold text-[var(--foreground)]">
-                  {selected.title}
-                </h2>
-
-                <div className="mt-4 flex flex-wrap gap-3">
-
-                  <Badge variant={selected.badge}>
-                    {selected.type}
-                  </Badge>
-
-                  <Badge
-                    variant={
-                      selected.status === "Belum Dibaca"
-                        ? "warning"
-                        : "success"
-                    }
-                  >
-                    {selected.status}
-                  </Badge>
-
+              {/* Header */}
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <h2 className="break-words text-xl font-bold text-[var(--foreground)] sm:text-2xl">
+                    {selected.title}
+                  </h2>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <Badge variant={selected.badge}>
+                      {notificationTypeLabel[selected.type] ?? selected.type}
+                    </Badge>
+                    <Badge variant={selected.unread ? "warning" : "success"}>
+                      {selected.unread ? "Belum Dibaca" : "Sudah Dibaca"}
+                    </Badge>
+                  </div>
                 </div>
-
               </div>
 
-            </div>
+              {/* Information */}
+              <div className="mt-8 grid gap-6 md:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
+                    Node
+                  </p>
+                  <p className="mt-2 break-words font-semibold">{selected.node}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
+                    Lokasi
+                  </p>
+                  <p className="mt-2 break-words font-semibold">{selected.location}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
+                    Waktu
+                  </p>
+                  <p className="mt-2">{selected.time}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
+                    Dibuat Pada
+                  </p>
+                  <p className="mt-2">{selected.createdAt}</p>
+                </div>
+              </div>
 
-            {/* Information */}
+              {/* Divider */}
+              <div className="my-8 border-t border-[var(--border)]" />
 
-            <div className="mt-8 grid gap-6 md:grid-cols-2">
-
+              {/* Description */}
               <div>
-
-                <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
-                  Node
+                <h3 className="text-lg font-semibold">Deskripsi</h3>
+                <p className="mt-4 break-words leading-7 text-[var(--text-secondary)] sm:leading-8">
+                  {selected.message}
                 </p>
-
-                <p className="mt-2 font-semibold">
-                  {selected.node}
-                </p>
-
               </div>
 
-              <div>
+              {/* Action Buttons */}
+              <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+                <Button
+                  className="w-full sm:w-auto"
+                  startContent={<Check size={18} />}
+                  onClick={() => markAsRead(selected.id)}
+                  disabled={!selected.unread}
+                >
+                  Tandai Dibaca
+                </Button>
 
-                <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
-                  Location
-                </p>
-
-                <p className="mt-2 font-semibold">
-                  {selected.location}
-                </p>
-
+                <Button
+                  className="w-full sm:w-auto"
+                  variant="outline"
+                  startContent={<Trash2 size={18} />}
+                  onClick={() => {
+                    const currentId = selected.id;
+                    removeNotification(currentId);
+                    const remaining = notifications.filter((item) => item.id !== currentId);
+                    setSelectedId(remaining.length > 0 ? remaining[0].id : null);
+                    if (remaining.length === 0) {
+                      setShowDetail(false);
+                    }
+                  }}
+                >
+                  Hapus
+                </Button>
               </div>
-
-              <div>
-
-                <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
-                  Time
+            </Card>
+          ) : (
+            <Card className="flex min-h-[280px] items-center justify-center p-6 sm:min-h-[400px] xl:min-h-[500px]">
+              <div className="text-center">
+                <h3 className="text-xl font-semibold">Belum Ada Notifikasi Dipilih</h3>
+                <p className="mt-2 text-[var(--text-secondary)]">
+                  Pilih salah satu notifikasi untuk melihat detailnya.
                 </p>
-
-                <p className="mt-2">
-                  {selected.time}
-                </p>
-
               </div>
-
-              <div>
-
-                <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
-                  Created At
-                </p>
-
-                <p className="mt-2">
-                  {selected.createdAt}
-                </p>
-
-              </div>
-
-            </div>
-
-            {/* Divider */}
-
-            <div className="my-8 border-t border-[var(--border)]" />
-
-            {/* Message */}
-
-            <div>
-
-              <h3 className="text-lg font-semibold">
-                Description
-              </h3>
-
-              <p className="mt-4 leading-8 text-[var(--text-secondary)]">
-                {selected.message}
-              </p>
-
-            </div>
-
-            {/* Action */}
-
-            <div className="mt-10 flex flex-wrap gap-4">
-
-              <Button
-                startContent={<Check size={18} />}
-              >
-                Mark as Read
-              </Button>
-
-              <Button
-                variant="outline"
-                startContent={<Trash2 size={18} />}
-              >
-                Delete
-              </Button>
-
-            </div>
-
-          </Card>
-
-        ) : (
-
-          <Card className="flex h-full min-h-[500px] items-center justify-center">
-
-            <div className="text-center">
-
-              <h3 className="text-xl font-semibold">
-                No Notification Selected
-              </h3>
-
-              <p className="mt-2 text-[var(--text-secondary)]">
-                Select a notification to view its details.
-              </p>
-
-            </div>
-
-          </Card>
-
-        )}
-
+            </Card>
+          )}
+        </div>
       </div>
-
-    </div>
-
     </>
   );
 }

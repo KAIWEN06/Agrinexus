@@ -16,7 +16,14 @@ export default function AreaChartCard({
   color = "#16A34A",
   data = [],
   dataKey = "value",
+  chartType = "monotone",
+  gradientId,
+  yDomain,
+  tooltipFormatter,
+  tooltipLabelFormatter,
+  yAxisProps = {},
 }) {
+
   return (
     <Card className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -36,7 +43,7 @@ export default function AreaChartCard({
           <AreaChart data={data}>
             <defs>
               <linearGradient
-                id={`gradient-${title}`}
+                id={gradientId}
                 x1="0"
                 y1="0"
                 x2="0"
@@ -68,20 +75,26 @@ export default function AreaChartCard({
             />
 
             <YAxis
+              domain={yDomain}
               tickLine={false}
               axisLine={false}
+              {...yAxisProps}
             />
 
             <Tooltip
-              formatter={(value) => [`${value} ${unit}`, title]}
+              formatter={
+                tooltipFormatter ??
+                ((value) => [`${value} ${unit}`, title])
+              }
+              labelFormatter={tooltipLabelFormatter}
             />
 
             <Area
-              type="monotone"
+              type={chartType}
               dataKey={dataKey}
               stroke={color}
               strokeWidth={3}
-              fill={`url(#gradient-${title})`}
+              fill={`url(#${gradientId})`}
             />
           </AreaChart>
         </ResponsiveContainer>

@@ -5,20 +5,37 @@ export const notifications = [
     message:
       "Kelembapan tanah berada di bawah batas normal. Segera lakukan penyiraman pada area yang terdampak.",
     type: "warning",
+    unread: true,
     status: "Belum Dibaca",
     badge: "warning",
     node: "Node-01",
     location: "Blok A",
-    time: "2 menit yang lalu",
+    time: "10 menit yang lalu",
     createdAt: "2026-06-29T08:15:00"
   },
 
   {
     id: 2,
+    title: "Kelembapan Tanah Tinggi",
+    message:
+      "Kelembapan tanah berada di atas batas normal. Segera lakukan drainase pada area yang terdampak.",
+    type: "warning",
+    unread: true,
+    status: "Belum Dibaca",
+    badge: "warning",
+    node: "Node-01",
+    location: "Blok A",
+    time: "15 menit yang lalu",
+    createdAt: "2026-06-29T08:15:00"
+  },
+
+  {
+    id: 3,
     title: "Suhu Lingkungan Tinggi",
     message:
       "Suhu udara melebihi ambang batas normal sehingga berpotensi menyebabkan stres pada tanaman.",
-    type: "danger",
+    type: "critical",
+    unread: true,
     status: "Belum Dibaca",
     badge: "danger",
     node: "Node-02",
@@ -28,11 +45,12 @@ export const notifications = [
   },
 
   {
-    id: 3,
+    id: 4,
     title: "Intensitas Cahaya Normal",
     message:
       "Intensitas cahaya berada pada rentang yang ideal untuk pertumbuhan tanaman.",
     type: "success",
+    unread: false,
     status: "Sudah Dibaca",
     badge: "success",
     node: "Node-03",
@@ -42,11 +60,12 @@ export const notifications = [
   },
 
   {
-    id: 4,
-    title: "Health Score Menurun",
+    id: 5,
+    title: "Skor Kesehatan Menurun",
     message:
-      "Nilai Health Score perkebunan turun menjadi 72/100. Disarankan melakukan pemeriksaan kondisi lingkungan.",
+      "Nilai Skor Kesehatan perkebunan turun menjadi 72/100. Disarankan melakukan pemeriksaan kondisi lingkungan.",
     type: "warning",
+    unread: true,
     status: "Belum Dibaca",
     badge: "warning",
     node: "Semua Node",
@@ -56,11 +75,12 @@ export const notifications = [
   },
 
   {
-    id: 5,
+    id: 6,
     title: "Node Berhasil Terhubung",
     message:
       "Node-01 berhasil terhubung kembali ke gateway dan mengirimkan data sensor secara normal.",
     type: "info",
+    unread: false,
     status: "Sudah Dibaca",
     badge: "info",
     node: "Node-01",
@@ -70,11 +90,12 @@ export const notifications = [
   },
 
   {
-    id: 6,
+    id: 7,
     title: "Seluruh Sensor Beroperasi Normal",
     message:
       "Semua sensor aktif dan mengirimkan data tanpa kendala selama 24 jam terakhir.",
     type: "success",
+    unread: false,
     status: "Sudah Dibaca",
     badge: "success",
     node: "Semua Node",

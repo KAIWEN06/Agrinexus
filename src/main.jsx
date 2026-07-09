@@ -5,18 +5,28 @@ import "./index.css";
 
 import App from "./App";
 
-import { DashboardProvider } from "./contexts/DashboardContext";
 import { AuthProvider } from "./contexts/AuthContext";
+import { DashboardProvider } from "./contexts/DashboardContext";
+import { HistoryProvider } from "./contexts/HistoryContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <AuthProvider>
 
-      <DashboardProvider>
+      <NotificationProvider>
 
-        <App />
+        <DashboardProvider>
 
-      </DashboardProvider>
+          <HistoryProvider>
+
+            <App />
+
+          </HistoryProvider>
+
+        </DashboardProvider>
+
+      </NotificationProvider>
 
     </AuthProvider>
   </StrictMode>
