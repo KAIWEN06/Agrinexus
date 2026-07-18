@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft, Check, CheckCheck, Trash2 } from "lucide-react";
 
 import PageHeader from "../components/common/PageHeader";
@@ -30,6 +31,19 @@ export default function Notifications() {
   const [filter, setFilter] = useState("all");
   const [selectedId, setSelectedId] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkScreen = () => {
+      setIsMobile(window.innerWidth < 1280);
+    };
+
+    checkScreen();
+
+    window.addEventListener("resize", checkScreen);
+
+    return () => window.removeEventListener("resize", checkScreen);
+  }, []);
 
   useEffect(() => {
     if (notifications.length > 0 && selectedId === null) {
@@ -162,7 +176,11 @@ export default function Notifications() {
                 className="cursor-pointer"
                 onClick={() => {
                   setSelectedId(notification.id);
-                  setShowDetail(true);
+
+                  if (isMobile) {
+                    setShowDetail(true);
+                  }
+
                   if (notification.unread) {
                     markAsRead(notification.id);
                   }
@@ -195,25 +213,9 @@ export default function Notifications() {
         {/* ===============================
             DETAIL NOTIFIKASI
         =============================== */}
-        <div
-          className={`
-            xl:col-span-3
-            ${showDetail ? "block" : "hidden xl:block"}
-          `}
-        >
+        <div className="hidden xl:block xl:col-span-3">
           {selected ? (
             <Card className="h-full p-5 sm:p-6 lg:p-8">
-              {/* Mobile Back Button */}
-              <div className="mb-6 xl:hidden">
-                <Button
-                  variant="outline"
-                  startContent={<ArrowLeft size={18} />}
-                  onClick={() => setShowDetail(false)}
-                >
-                  Kembali
-                </Button>
-              </div>
-
               {/* Header */}
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
@@ -232,30 +234,49 @@ export default function Notifications() {
               </div>
 
               {/* Information */}
-              <div className="mt-8 grid gap-6 md:grid-cols-2">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
-                    Node
-                  </p>
-                  <p className="mt-2 break-words font-semibold">{selected.node}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
-                    Lokasi
-                  </p>
-                  <p className="mt-2 break-words font-semibold">{selected.location}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
-                    Waktu
-                  </p>
-                  <p className="mt-2">{selected.time}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
-                    Dibuat Pada
-                  </p>
-                  <p className="mt-2">{selected.createdAt}</p>
+              <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+                <div className="space-y-4">
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-[var(--text-secondary)]">
+                      Node
+                    </span>
+
+                    <span className="font-semibold">
+                      {selected.node}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-[var(--text-secondary)]">
+                      Lokasi
+                    </span>
+
+                    <span className="text-right font-semibold">
+                      {selected.location}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-[var(--text-secondary)]">
+                      Waktu
+                    </span>
+
+                    <span>
+                      {selected.time}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-[var(--text-secondary)]">
+                      Dibuat
+                    </span>
+
+                    <span className="text-right">
+                      {selected.createdAt}
+                    </span>
+                  </div>
+
                 </div>
               </div>
 
@@ -311,6 +332,139 @@ export default function Notifications() {
           )}
         </div>
       </div>
+    {isMobile &&
+      showDetail &&
+      selected &&
+      createPortal(
+        <div className="fixed inset-0 z-50 xl:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowDetail(false)}
+          />
+
+          {/* Bottom Sheet */}
+          <div className="absolute bottom-0 left-0 right-0 max-h-[90dvh] overflow-y-auto rounded-t-3xl bg-[var(--background)] p-6 shadow-2xl">
+
+            <div className="mb-4 flex justify-center">
+              <div className="h-1.5 w-14 rounded-full bg-gray-300" />
+            </div>
+
+            <Button
+              variant="outline"
+              startContent={<ArrowLeft size={18} />}
+              onClick={() => setShowDetail(false)}
+            >
+              Kembali
+            </Button>
+
+            <h2 className="mt-6 text-2xl font-bold">
+              {selected.title}
+            </h2>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge variant={selected.badge}>
+                {notificationTypeLabel[selected.type] ?? selected.type}
+              </Badge>
+
+              <Badge variant={selected.unread ? "warning" : "success"}>
+                {selected.unread ? "Belum Dibaca" : "Sudah Dibaca"}
+              </Badge>
+            </div>
+
+            {/* Information */}
+<div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+  <div className="space-y-4">
+
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-sm text-[var(--text-secondary)]">
+        Node
+      </span>
+
+      <span className="font-semibold">
+        {selected.node}
+      </span>
+    </div>
+
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-sm text-[var(--text-secondary)]">
+        Lokasi
+      </span>
+
+      <span className="text-right font-semibold">
+        {selected.location}
+      </span>
+    </div>
+
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-sm text-[var(--text-secondary)]">
+        Waktu
+      </span>
+
+      <span>
+        {selected.time}
+      </span>
+    </div>
+
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-sm text-[var(--text-secondary)]">
+        Dibuat
+      </span>
+
+      <span className="text-right">
+        {selected.createdAt}
+      </span>
+    </div>
+
+  </div>
+          </div>
+
+          <div className="my-6 border-t border-[var(--border)]" />
+
+          <h3 className="text-lg font-semibold">
+            Deskripsi
+          </h3>
+
+          <p className="mt-4 break-words leading-7 text-[var(--text-secondary)]">
+            {selected.message}
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3">
+            <Button
+              startContent={<Check size={18} />}
+              disabled={!selected.unread}
+              onClick={() => markAsRead(selected.id)}
+            >
+              Tandai Dibaca
+            </Button>
+
+            <Button
+              variant="outline"
+              startContent={<Trash2 size={18} />}
+              onClick={() => {
+                const currentId = selected.id;
+
+                removeNotification(currentId);
+
+                const remaining = notifications.filter(
+                  (item) => item.id !== currentId
+                );
+
+                setSelectedId(
+                  remaining.length > 0 ? remaining[0].id : null
+                );
+
+                setShowDetail(false);
+              }}
+            >
+              Hapus
+            </Button>
+          </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }

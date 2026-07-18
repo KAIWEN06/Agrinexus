@@ -4,7 +4,7 @@ export default function SoilMoistureChart(props) {
   return (
     <AreaChartCard
       title="Kelembapan Tanah"
-      unit="%"
+      unit="ADC"
       color="#8B5E3C"
       gradientId="soilGradient"
       yDomain={[0, 100]}

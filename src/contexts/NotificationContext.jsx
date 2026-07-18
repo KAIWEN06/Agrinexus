@@ -1,31 +1,73 @@
-
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
 
-import {
-  notifications as notificationData,
-} from "../data/notifications";
+import notificationService from "../services/notificationService";
 
 const NotificationContext = createContext(null);
 
 export function NotificationProvider({
   children,
 }) {
-  const [notifications, setNotifications] = useState(
-    [...notificationData].sort(
-      (a, b) =>
-        new Date(b.createdAt) -
-        new Date(a.createdAt)
-    )
-  );
+  const [notifications, setNotifications] =
+    useState([]);
 
-  // ======================================
-  // Total Unread
-  // ======================================
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState(null);
+
+  /* ======================================
+     Load Notification
+  ====================================== */
+
+  const loadNotifications =
+    async () => {
+      try {
+        setLoading(true);
+
+        const data =
+          await notificationService.getNotifications();
+
+        setNotifications(data);
+
+        setError(null);
+      } catch (err) {
+        console.error(err);
+
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  /* ======================================
+     Initial Load + Realtime
+  ====================================== */
+
+  useEffect(() => {
+    loadNotifications();
+
+    const unsubscribe =
+      notificationService.subscribe(
+        (data) => {
+          setNotifications(data);
+        }
+      );
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  /* ======================================
+     Total Unread
+  ====================================== */
 
   const unreadCount = useMemo(() => {
     return notifications.filter(
@@ -33,103 +75,91 @@ export function NotificationProvider({
     ).length;
   }, [notifications]);
 
-  // ======================================
-  // Unread List
-  // ======================================
+  /* ======================================
+     Unread List
+  ====================================== */
 
-  const unreadNotifications = useMemo(() => {
-    return notifications.filter(
-      (item) => item.unread
-    );
-  }, [notifications]);
+  const unreadNotifications =
+    useMemo(() => {
+      return notifications.filter(
+        (item) => item.unread
+      );
+    }, [notifications]);
 
-  // ======================================
-  // Read List
-  // ======================================
+  /* ======================================
+     Read List
+  ====================================== */
 
-  const readNotifications = useMemo(() => {
-    return notifications.filter(
-      (item) => !item.unread
-    );
-  }, [notifications]);
+  const readNotifications =
+    useMemo(() => {
+      return notifications.filter(
+        (item) => !item.unread
+      );
+    }, [notifications]);
 
-  // ======================================
-  // Mark One
-  // ======================================
+  /* ======================================
+     Mark One
+  ====================================== */
 
-  const markAsRead = (id) => {
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              unread: false,
-              status: "Sudah Dibaca",
-            }
-          : item
-      )
-    );
+  const markAsRead = async (id) => {
+    try {
+      await notificationService.markAsRead(
+        id
+      );
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  // ======================================
-  // Mark All
-  // ======================================
+  /* ======================================
+     Mark All
+  ====================================== */
 
-  const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((item) => ({
-        ...item,
-        unread: false,
-        status: "Sudah Dibaca",
-      }))
-    );
-  };
-
-  // ======================================
-  // Add
-  // ======================================
-
-  const addNotification = (
-    notification
-  ) => {
-    const newNotification = {
-      id: Date.now(),
-
-      unread: true,
-
-      status: "Belum Dibaca",
-
-      createdAt: new Date().toISOString(),
-
-      time: "Baru saja",
-
-      ...notification,
+  const markAllAsRead =
+    async () => {
+      try {
+        await notificationService.markAllAsRead();
+      } catch (err) {
+        console.error(err);
+      }
     };
 
-    setNotifications((prev) => [
-      newNotification,
-      ...prev,
-    ]);
-  };
+  /* ======================================
+     Delete
+  ====================================== */
 
-  // ======================================
-  // Remove
-  // ======================================
+  const removeNotification =
+    async (id) => {
+      try {
+        await notificationService.deleteNotification(
+          id
+        );
+      } catch (err) {
+        console.error(err);
+      }
+    };
 
-  const removeNotification = (id) => {
-    setNotifications((prev) =>
-      prev.filter(
-        (item) => item.id !== id
-      )
+  /* ======================================
+     Clear
+  ====================================== */
+
+  const clearNotifications =
+    async () => {
+      try {
+        await notificationService.clearNotifications();
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+  /* ======================================
+     Add (Opsional)
+  ====================================== */
+
+  const addNotification = () => {
+    console.warn(
+      "Gunakan insert langsung ke tabel notifications di Supabase."
     );
-  };
-
-  // ======================================
-  // Clear
-  // ======================================
-
-  const clearNotifications = () => {
-    setNotifications([]);
   };
 
   const value = {
@@ -140,6 +170,12 @@ export function NotificationProvider({
     readNotifications,
 
     unreadCount,
+
+    loading,
+
+    error,
+
+    reload: loadNotifications,
 
     markAsRead,
 
