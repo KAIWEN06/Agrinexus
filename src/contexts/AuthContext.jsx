@@ -7,41 +7,102 @@ import {
 } from "react";
 
 import * as authService from "../services/authService";
+import * as profileService from "../services/profileService";
+
 import { supabase } from "../services/supabase";
 
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  /*
+  =========================================
+  STATE
+  =========================================
+  */
+
   const [user, setUser] = useState(null);
+
+  const [profile, setProfile] = useState(null);
+
   const [session, setSession] = useState(null);
 
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState(null);
 
   /*
-   * Restore Session + Listen Auth Changes
-   */
+  =========================================
+  LOAD PROFILE
+  =========================================
+  */
+
+  const loadProfile = useCallback(async (authUser) => {
+    if (!authUser) {
+      setProfile(null);
+      return;
+    }
+
+    try {
+      const profileData =
+        await profileService.getProfile(authUser.id);
+
+      setProfile({
+        ...profileData,
+        email: authUser.email,
+      });
+    } catch (err) {
+      console.error("Profile Error :", err);
+
+      setProfile({
+        id: authUser.id,
+        email: authUser.email,
+        full_name: "",
+        phone: "",
+        location: "",
+        role: "",
+        avatar_url: null,
+      });
+    }
+  }, []);
+
+  /*
+  =========================================
+  RESTORE SESSION
+  =========================================
+  */
+
   useEffect(() => {
     let mounted = true;
 
     async function initializeAuth() {
       try {
         setLoading(true);
+
         setError(null);
 
-        const data = await authService.getSession();
+        const data =
+          await authService.getSession();
 
         if (!mounted) return;
 
+        const authUser =
+          data.session?.user ?? null;
+
         setSession(data.session);
-        setUser(data.session?.user ?? null);
+
+        setUser(authUser);
+
+        await loadProfile(authUser);
       } catch (err) {
         console.error(err);
 
         if (!mounted) return;
 
         setSession(null);
+
         setUser(null);
+
+        setProfile(null);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -53,82 +114,90 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-      }
-    );
+    } =
+      supabase.auth.onAuthStateChange(
+        async (_event, session) => {
+          const authUser =
+            session?.user ?? null;
+
+          setSession(session);
+
+          setUser(authUser);
+
+          await loadProfile(authUser);
+        }
+      );
 
     return () => {
       mounted = false;
+
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadProfile]);
 
   /*
-   * Login
-   */
-  const login = useCallback(async (email, password, remember) => {
-    try {
-      setLoading(true);
-      setError(null);
+  =========================================
+  LOGIN
+  =========================================
+  */
 
-      const data = await authService.login(
-        email,
-        password,
-        remember
-      );
+  const login = useCallback(
+    async (
+      email,
+      password,
+      remember
+    ) => {
+      try {
+        setLoading(true);
 
-      setSession(data.session);
-      setUser(data.user);
+        setError(null);
 
-      return true;
-    } catch (err) {
-      console.error(err);
+        const data =
+          await authService.login(
+            email,
+            password,
+            remember
+          );
 
-      setError(err.message);
+        setSession(data.session);
 
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        setUser(data.user);
+
+        await loadProfile(data.user);
+
+        return true;
+      } catch (err) {
+        console.error(err);
+
+        setError(err.message);
+
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadProfile]
+  );
 
   /*
-   * Logout
-   */
+  =========================================
+  LOGOUT
+  =========================================
+  */
+
   const logout = useCallback(async () => {
     try {
       setLoading(true);
+
       setError(null);
 
       await authService.logout();
 
       setSession(null);
+
       setUser(null);
 
-      return true;
-    } catch (err) {
-      console.error(err);
-
-      setError(err.message);
-
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  /*
-   * Forgot Password
-   */
-  const forgotPassword = useCallback(async (email) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      await authService.forgotPassword(email);
+      setProfile(null);
 
       return true;
     } catch (err) {
@@ -143,44 +212,112 @@ export function AuthProvider({ children }) {
   }, []);
 
   /*
-   * Reset Password
-   */
-  const resetPassword = useCallback(async (password) => {
-    try {
-      setLoading(true);
-      setError(null);
+  =========================================
+  FORGOT PASSWORD
+  =========================================
+  */
 
-      await authService.resetPassword(password);
+  const forgotPassword =
+    useCallback(async (email) => {
+      try {
+        setLoading(true);
 
-      return true;
-    } catch (err) {
-      console.error(err);
+        setError(null);
 
-      setError(err.message);
+        await authService.forgotPassword(
+          email
+        );
 
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        return true;
+      } catch (err) {
+        console.error(err);
+
+        setError(err.message);
+
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    }, []);
+
+  /*
+  =========================================
+  RESET PASSWORD
+  =========================================
+  */
+
+  const resetPassword =
+    useCallback(async (password) => {
+      try {
+        setLoading(true);
+
+        setError(null);
+
+        await authService.resetPassword(
+          password
+        );
+
+        return true;
+      } catch (err) {
+        console.error(err);
+
+        setError(err.message);
+
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    }, []);
+
+  /*
+  =========================================
+  REFRESH PROFILE
+  =========================================
+  */
+
+  const refreshProfile =
+    useCallback(async () => {
+      if (!user) return;
+
+      await loadProfile(user);
+    }, [user, loadProfile]);
+
+  /*
+  =========================================
+  CONTEXT VALUE
+  =========================================
+  */
 
   const value = useMemo(
     () => ({
       user,
+
+      profile,
+
       session,
 
       loading,
+
       error,
 
-      isAuthenticated: Boolean(user),
+      isAuthenticated:
+        Boolean(user),
 
       login,
+
       logout,
+
       forgotPassword,
+
       resetPassword,
+
+      refreshProfile,
+
+      setProfile,
     }),
     [
       user,
+      profile,
       session,
       loading,
       error,
@@ -188,6 +325,7 @@ export function AuthProvider({ children }) {
       logout,
       forgotPassword,
       resetPassword,
+      refreshProfile,
     ]
   );
 
