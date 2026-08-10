@@ -8,6 +8,7 @@ export const ROUTES = {
   DASHBOARD: "/dashboard",
   HISTORY: "/history",
   NOTIFICATIONS: "/notifications",
+  PERANGKAT: "/perangkat",
   SETTINGS: "/settings",
   PROFILE: "/profile"
 };

@@ -7,14 +7,20 @@ const TABLE = "notifications";
 const notificationService = {
   /**
    * Mengambil seluruh notifikasi
+   * Menggunakan relasi ke node_devices via Foreign Key 'fk_notifications_node_devices'
    */
   async getNotifications(limit = null) {
+    // 1. Menggunakan LEFT JOIN dengan penanda constraint FK yang eksplisit
     let query = supabase
       .from(TABLE)
-      .select("*")
-      .order("created_at", {
-        ascending: false,
-      });
+      .select(`
+        *,
+        node_devices!fk_notifications_node_devices (
+          name,
+          location
+        )
+      `)
+      .order("created_at", { ascending: false });
 
     if (limit) {
       query = query.limit(limit);
@@ -23,44 +29,46 @@ const notificationService = {
     const { data, error } = await query;
 
     if (error) {
+      console.error("Error fetching notifications:", error.message);
       throw error;
     }
 
+    // 2. Mapping data dengan aman (penanganan fallback data & tanggal)
     return (
-      data?.map((item) => ({
-        id: item.id,
+      data?.map((item) => {
+        const createdDate = item.created_at ? new Date(item.created_at) : null;
 
-        title: item.title,
+        return {
+          id: item.id,
+          title: item.title,
+          message: item.message,
+          type: item.level ?? "info",
+          badge: item.level ?? "info",
+          unread: !item.is_read,
 
-        message: item.message,
+          // Ambil nama node & lokasi dari relasi node_devices
+          node: item.node_devices?.name ?? item.node_name ?? "-",
+          location: item.node_devices?.location ?? item.location ?? "-",
 
-        type: item.level ?? "info",
+          // Format tanggal & waktu
+          createdAt: createdDate
+            ? createdDate.toLocaleString("id-ID", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "-",
 
-        badge: item.level ?? "info",
-
-        unread: !item.is_read,
-
-        node: item.node_name ?? "-",
-
-        location: item.location ?? "-",
-
-        createdAt: new Date(
-          item.created_at
-        ).toLocaleString("id-ID", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-
-        time: new Date(
-          item.created_at
-        ).toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      })) ?? []
+          time: createdDate
+            ? createdDate.toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "-",
+        };
+      }) ?? []
     );
   },
 
@@ -70,12 +78,11 @@ const notificationService = {
   async markAsRead(id) {
     const { error } = await supabase
       .from(TABLE)
-      .update({
-        is_read: true,
-      })
+      .update({ is_read: true })
       .eq("id", id);
 
     if (error) {
+      console.error(`Error marking notification ${id} as read:`, error.message);
       throw error;
     }
 
@@ -88,12 +95,11 @@ const notificationService = {
   async markAllAsRead() {
     const { error } = await supabase
       .from(TABLE)
-      .update({
-        is_read: true,
-      })
+      .update({ is_read: true })
       .eq("is_read", false);
 
     if (error) {
+      console.error("Error marking all notifications as read:", error.message);
       throw error;
     }
 
@@ -110,6 +116,7 @@ const notificationService = {
       .eq("id", id);
 
     if (error) {
+      console.error(`Error deleting notification ${id}:`, error.message);
       throw error;
     }
 
@@ -126,6 +133,7 @@ const notificationService = {
       .neq("id", 0);
 
     if (error) {
+      console.error("Error clearing notifications:", error.message);
       throw error;
     }
 
@@ -133,9 +141,9 @@ const notificationService = {
   },
 
   /**
-   * Subscribe realtime
+   * Subscribe perubahan data secara Real-time
    */
-  subscribe(callback) {
+  subscribe(callback, limit = null) {
     const channel = supabase
       .channel("notifications-channel")
       .on(
@@ -146,10 +154,12 @@ const notificationService = {
           table: TABLE,
         },
         async () => {
-          const notifications =
-            await this.getNotifications();
-
-          callback(notifications);
+          try {
+            const notifications = await notificationService.getNotifications(limit);
+            callback(notifications);
+          } catch (err) {
+            console.error("Error updating realtime notifications:", err);
+          }
         }
       )
       .subscribe();

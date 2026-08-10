@@ -9,6 +9,7 @@ import History from "../pages/History";
 import Notifications from "../pages/Notifications";
 import Settings from "../pages/Settings";
 import Profile from "../pages/Profile";
+import Perangkat from "../pages/Perangkat";
 
 import { ROUTES } from "../constants/app/routes";
 
@@ -28,6 +29,11 @@ const dashboardRoutes = (
       <Route
         path={ROUTES.NOTIFICATIONS}
         element={<Notifications />}
+      />
+      
+      <Route
+        path={ROUTES.PERANGKAT}
+        element={<Perangkat />}
       />
 
       <Route

@@ -1,4 +1,11 @@
-import { LayoutDashboard, History, Bell, Settings, User } from "lucide-react";
+import {
+  LayoutDashboard,
+  Cpu,
+  History,
+  Bell,
+  Settings,
+  User
+} from "lucide-react";
 
 export const menu = [
   {
@@ -12,12 +19,17 @@ export const menu = [
     icon: History
   },
   {
-    title: "Nonifikasi",
+    title: "Notifikasi",
     path: "/notifications",
     icon: Bell
   },
   {
-    title: "Setingan",
+    title: "Perangkat",
+    path: "/perangkat", // bisa disesuaikan jadi /perangkat jika perlu
+    icon: Cpu
+  },
+  {
+    title: "Pengaturan",
     path: "/settings",
     icon: Settings
   },
