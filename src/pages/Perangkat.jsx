@@ -16,20 +16,19 @@ export default function Perangkat() {
   const [editingNodeId, setEditingNodeId] = useState(null);
   const [tempLocation, setTempLocation] = useState("");
 
-  // Helper untuk parse tanggal UTC dengan aman
+  // Helper untuk parse tanggal UTC
   const parseDbDate = (dateStr) => {
     if (!dateStr) return null;
     const formattedStr = dateStr.includes("Z") || dateStr.includes("+") ? dateStr : `${dateStr.replace(" ", "T")}Z`;
     return new Date(formattedStr);
   };
 
-  // 1. Fetch seluruh data riil dari Supabase
-  // Parameter isInitial menentukan apakah loading spinner penuh perlu ditampilkan
+  // Fetch seluruh data riil dari Supabase
   const fetchData = async (isInitial = false) => {
     try {
       if (isInitial) setLoading(true);
 
-      // A. Ambil Pengaturan Sistem Terbaru
+      // A. Ambil Pengaturan Sistem
       const { data: settingsData, error: settingsError } = await supabase
         .from("settings")
         .select("*")
@@ -73,7 +72,7 @@ export default function Perangkat() {
 
       setPanelData(latestPanel ? { ...latestPanel, isConnected: isPanelOnline } : null);
 
-      // C. Query Langsung Tabel 'node_devices' dari Supabase
+      // C. Query Node Devices & Sensor Readings
       const { data: rawNodes, error: nodeError } = await supabase
         .from("node_devices")
         .select("*")
@@ -98,6 +97,11 @@ export default function Perangkat() {
           const isNodeOffline = rawStatus === "offline";
           const isPowerOff = !settings.node_power;
 
+          // Cek status kesehatan fisik sensor (kolom boolean dari sensor_readings)
+          const isSoilOk = latestReading?.soil_ok ?? true;
+          const isAhtOk = latestReading?.aht_ok ?? true;
+          const isBhOk = latestReading?.bh_ok ?? true;
+
           return {
             id: item.id,
             name: item.name,
@@ -106,16 +110,25 @@ export default function Perangkat() {
             lastSeen: item.last_seen,
             sensors: {
               soilMoisture: {
-                status: isPowerOff || isNodeOffline ? "offline" : (latestReading?.soil_moisture != null ? "online" : "error"),
-                value: latestReading?.soil_moisture != null ? `${latestReading.soil_moisture}%` : "-"
+                status: isPowerOff || isNodeOffline || !isSoilOk 
+                  ? "offline" 
+                  : (latestReading?.soil_moisture != null ? "online" : "error"),
+                value: latestReading?.soil_moisture != null ? `${latestReading.soil_moisture}%` : "-",
+                isOk: isSoilOk
               },
               airTempHumidity: {
-                status: isPowerOff || isNodeOffline ? "offline" : (latestReading?.temperature != null && latestReading?.humidity != null ? "online" : "error"),
-                value: latestReading?.temperature != null ? `${latestReading.temperature}°C / ${latestReading.humidity}%` : "-"
+                status: isPowerOff || isNodeOffline || !isAhtOk 
+                  ? "offline" 
+                  : (latestReading?.temperature != null && latestReading?.humidity != null ? "online" : "error"),
+                value: latestReading?.temperature != null ? `${latestReading.temperature}°C / ${latestReading.humidity}%` : "-",
+                isOk: isAhtOk
               },
               lightIntensity: {
-                status: isPowerOff || isNodeOffline ? "offline" : (latestReading?.light_intensity != null ? "online" : "error"),
-                value: latestReading?.light_intensity != null ? `${latestReading.light_intensity.toLocaleString()} Lux` : "-"
+                status: isPowerOff || isNodeOffline || !isBhOk 
+                  ? "offline" 
+                  : (latestReading?.light_intensity != null ? "online" : "error"),
+                value: latestReading?.light_intensity != null ? `${latestReading.light_intensity.toLocaleString()} Lux` : "-",
+                isOk: isBhOk
               }
             }
           };
@@ -130,43 +143,22 @@ export default function Perangkat() {
     }
   };
 
-  // 2. Setup Realtime Listener Supabase
   useEffect(() => {
-    // Ambil data pertama kali dengan indikator loading
     fetchData(true);
 
-    // Buat Subscription Realtime untuk mendengarkan perubahan tabel
     const channel = supabase
       .channel("realtime_perangkat")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "sensor_readings" },
-        () => fetchData(false)
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "panel_logs" },
-        () => fetchData(false)
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "node_devices" },
-        () => fetchData(false)
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "settings" },
-        () => fetchData(false)
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "sensor_readings" }, () => fetchData(false))
+      .on("postgres_changes", { event: "*", schema: "public", table: "panel_logs" }, () => fetchData(false))
+      .on("postgres_changes", { event: "*", schema: "public", table: "node_devices" }, () => fetchData(false))
+      .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, () => fetchData(false))
       .subscribe();
 
-    // Cleanup subscription saat komponen unmount
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
 
-  // Simpan Lokasi Baru ke Tabel 'node_devices'
   const handleSaveLocation = async (id) => {
     try {
       setSavingId(id);
@@ -188,7 +180,6 @@ export default function Perangkat() {
     }
   };
 
-  // Helper Badge Status (Online / Offline / Error / Power OFF)
   const renderStatusBadge = (status) => {
     switch (status) {
       case "online":
@@ -229,7 +220,6 @@ export default function Perangkat() {
     const fanStatus = panelData?.fan_status ?? false;
     const fanMode = sysSettings?.fan_mode ?? "AUTO";
 
-    // --- CHECK PANEL UTAMA ---
     if (!panelData || !panelData.isConnected) {
       list.push({
         source: "Panel Utama",
@@ -262,35 +252,35 @@ export default function Perangkat() {
       }
     }
 
-    // --- CHECK NODE & SENSOR-SENSORNYA ---
     if (!isGlobalNodePowerOff) {
       nodes.forEach((node) => {
         if (node.status === "offline") {
           list.push({
             source: `${node.name} (${node.location})`,
             issue: "Koneksi Node Terputus",
-            solution: "Cek ketersediaan tegangan solar panel pada node sekitar 12V dan tidak menunjukan perbedaan tegangan yang signifikan. Pastikan jarak node tidak terhalang material padat dari Panel, pastikan tidak ada gangguan sinyal WiFi di area node, Periksa kabel antena dan konektor modul WiFi."
+            solution: "Cek ketersediaan tegangan solar panel pada node sekitar 12V. Pastikan jarak node tidak terhalang material padat dari Panel dan tidak ada gangguan sinyal."
           });
         } else {
-          if (node.sensors.soilMoisture.status === "error") {
+          // Pengecekan status fisik sensor (aht_ok, bh_ok, soil_ok)
+          if (!node.sensors.soilMoisture.isOk) {
             list.push({
               source: `${node.name} - Sensor Kelembapan Tanah`,
-              issue: "Data Sensor Kelembapan Tidak Valid",
-              solution: "Tancapkan ulang probe sensor ke tanah. Periksa konektor kabel dari kemungkinan karat, korosi atau terlepas dari soket."
+              issue: "Sensor Fisik Terputus / Tidak Terdeteksi (soil_ok: false)",
+              solution: "Periksa fisik dan perkabelan sensor kelembapan tanah pada node ini. Pastikan soket/konektor terpasang erat dan probe tertancap dengan baik."
             });
           }
-          if (node.sensors.airTempHumidity.status === "error") {
+          if (!node.sensors.airTempHumidity.isOk) {
             list.push({
-              source: `${node.name} - Sensor Suhu/Udara`,
-              issue: "Data Sensor Suhu Udara Hilang",
-              solution: "Periksa modul sensor DHT10 pada bagian bawah casing node, pastikan tidak terendam air tergenang atau tertutup, Periksa konektor kabel dari kemungkinan karat, korosi atau terlepas dari soket."
+              source: `${node.name} - Sensor Suhu & Udara (AHT)`,
+              issue: "Sensor Fisik Terputus / Tidak Terdeteksi (aht_ok: false)",
+              solution: "Periksa fisik modul sensor AHT pada bagian bawah casing node. Pastikan kabel sensor tidak terlepas dari PCB atau terendam air."
             });
           }
-          if (node.sensors.lightIntensity.status === "error") {
+          if (!node.sensors.lightIntensity.isOk) {
             list.push({
-              source: `${node.name} - Sensor Cahaya`,
-              issue: "Data Sensor Cahaya Hilang",
-              solution: "Bersihkan pelindung sensor cahaya dari debu pekat atau kotoran, Periksa konektor kabel dari kemungkinan karat, korosi atau terlepas dari soket."
+              source: `${node.name} - Sensor Cahaya (BH1750)`,
+              issue: "Sensor Fisik Terputus / Tidak Terdeteksi (bh_ok: false)",
+              solution: "Periksa fisik sensor cahaya pada node ini. Pastikan kabel konektor tidak korosi dan permukaan sensor bersih dari penutup/kotoran."
             });
           }
         }
@@ -336,13 +326,12 @@ export default function Perangkat() {
         </div>
       </div>
 
-      {/* BANNER INFORMASI: JIKA POWER NODE DIMATIKAN DARI PENGATURAN */}
       {sysSettings && !sysSettings.node_power && (
         <div className="p-4 bg-slate-800 text-slate-200 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <PowerOff className="text-amber-400 shrink-0" size={20} />
             <span className="text-sm">
-              <strong className="text-white">Daya Node Dimatikan Manual:</strong> Seluruh node perkebunan saat ini diset <strong>OFF</strong> melalui Pengaturan Sistem. Status terputus pada node dianggap sebagai kondisi normal.
+              <strong className="text-white">Daya Node Dimatikan Manual:</strong> Seluruh node perkebunan saat ini diset <strong>OFF</strong> melalui Pengaturan Sistem.
             </span>
           </div>
         </div>
@@ -419,7 +408,6 @@ export default function Perangkat() {
 
                 {/* Telemetri Sensor Node */}
                 <div className="space-y-2.5 text-xs">
-                  {/* Kelembapan Tanah */}
                   <div className="flex justify-between items-center p-2 rounded-lg bg-slate-50/70">
                     <span className="flex items-center gap-2 text-slate-600">
                       <Droplets size={14} className="text-blue-500" /> Kelembapan Tanah
@@ -430,7 +418,6 @@ export default function Perangkat() {
                     </div>
                   </div>
 
-                  {/* Suhu & Udara */}
                   <div className="flex justify-between items-center p-2 rounded-lg bg-slate-50/70">
                     <span className="flex items-center gap-2 text-slate-600">
                       <Thermometer size={14} className="text-orange-500" /> Suhu & Udara
@@ -441,7 +428,6 @@ export default function Perangkat() {
                     </div>
                   </div>
 
-                  {/* Intensitas Cahaya */}
                   <div className="flex justify-between items-center p-2 rounded-lg bg-slate-50/70">
                     <span className="flex items-center gap-2 text-slate-600">
                       <Sun size={14} className="text-amber-500" /> Intensitas Cahaya
@@ -462,7 +448,6 @@ export default function Perangkat() {
       {/* TAB 2: PANEL UTAMA */}
       {activeTab === "panel" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Status Sistem & Koneksi PCB Panel */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
               <Cpu className="text-emerald-600" size={20} /> Status Sistem Panel
@@ -510,7 +495,6 @@ export default function Perangkat() {
             </div>
           </div>
 
-          {/* Sensor Direct Panel */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
               <CloudRain className="text-blue-600" size={20} /> Sensor Direct Panel
@@ -534,6 +518,17 @@ export default function Perangkat() {
                     {panelData?.isConnected && panelData?.box_humidity != null ? `${panelData.box_humidity} %` : "-"}
                   </span>
                   {renderStatusBadge(panelData?.isConnected && panelData?.box_humidity != null ? "online" : "offline")}
+                </div>
+              </div>
+
+              {/* Data Baterai Panel (Tanpa Ikon Baterai) */}
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-sm font-medium text-slate-600">Baterai Panel</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold px-2 py-0.5 bg-slate-200 rounded font-mono">
+                    {panelData?.isConnected && panelData?.battery_voltage != null ? `${panelData.battery_voltage} V` : "-"}
+                  </span>
+                  {renderStatusBadge(panelData?.isConnected && panelData?.battery_voltage != null ? "online" : "offline")}
                 </div>
               </div>
             </div>
