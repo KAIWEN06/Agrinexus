@@ -108,6 +108,7 @@ export default function Perangkat() {
             status: isPowerOff ? "power_off" : rawStatus,
             location: item.location ?? "-",
             lastSeen: item.last_seen,
+            rssi: item.rssi ?? -100, // Ambil nilai RSSI dari node_devices
             sensors: {
               soilMoisture: {
                 status: isPowerOff || isNodeOffline || !isSoilOk 
@@ -261,7 +262,6 @@ export default function Perangkat() {
             solution: "Cek ketersediaan tegangan solar panel pada node sekitar 12V. Pastikan jarak node tidak terhalang material padat dari Panel dan tidak ada gangguan sinyal."
           });
         } else {
-          // Pengecekan status fisik sensor (aht_ok, bh_ok, soil_ok)
           if (!node.sensors.soilMoisture.isOk) {
             list.push({
               source: `${node.name} - Sensor Kelembapan Tanah`,
@@ -406,7 +406,7 @@ export default function Perangkat() {
                   )}
                 </div>
 
-                {/* Telemetri Sensor Node */}
+                {/* Telemetri Sensor & Sinyal Node */}
                 <div className="space-y-2.5 text-xs">
                   <div className="flex justify-between items-center p-2 rounded-lg bg-slate-50/70">
                     <span className="flex items-center gap-2 text-slate-600">
@@ -435,6 +435,19 @@ export default function Perangkat() {
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-semibold">{node.sensors.lightIntensity.value}</span>
                       {renderStatusBadge(node.sensors.lightIntensity.status)}
+                    </div>
+                  </div>
+
+                  {/* Telemetri Sinyal RSSI */}
+                  <div className="flex justify-between items-center p-2 rounded-lg bg-slate-50/70">
+                    <span className="flex items-center gap-2 text-slate-600">
+                      <Wifi size={14} className="text-emerald-500" /> Sinyal (RSSI)
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-semibold">
+                        {node.status === "online" ? `${node.rssi} dBm` : "-"}
+                      </span>
+                      {renderStatusBadge(node.status === "online" ? "online" : "offline")}
                     </div>
                   </div>
                 </div>
@@ -521,7 +534,6 @@ export default function Perangkat() {
                 </div>
               </div>
 
-              {/* Data Baterai Panel (Tanpa Ikon Baterai) */}
               <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-sm font-medium text-slate-600">Baterai Panel</span>
                 <div className="flex items-center gap-2">
