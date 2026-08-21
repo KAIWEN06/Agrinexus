@@ -22,8 +22,8 @@ const formatBatteryVoltage = (rawVoltage) => {
     const CALIBRATION_FACTOR = 0.895; // Mengoreksi nilai ~14.9V menjadi skala ~13.1V
     const calibratedVoltage = Number(rawVoltage) * CALIBRATION_FACTOR;
     
-    // Mengalikan 10 lalu ceil untuk membulatkan 1 desimal ke atas, lalu bagi 10
-    const roundedUp = (Math.ceil(calibratedVoltage * 10) / 10).toFixed(1);
+    // Membulatkan ke atas untuk 2 digit desimal (misal: 13.291 -> 13.30)
+    const roundedUp = (Math.ceil(calibratedVoltage * 100) / 100).toFixed(2);
     return roundedUp;
   };
 
