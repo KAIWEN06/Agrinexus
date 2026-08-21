@@ -16,6 +16,17 @@ export default function Perangkat() {
   const [editingNodeId, setEditingNodeId] = useState(null);
   const [tempLocation, setTempLocation] = useState("");
 
+  // Helper untuk kalibrasi & format tampilan baterai (14.9V -> ~13.1V dengan 2 desimal)
+const formatBatteryVoltage = (rawVoltage) => {
+    if (rawVoltage == null || isNaN(rawVoltage)) return "-";
+    const CALIBRATION_FACTOR = 0.895; // Mengoreksi nilai ~14.9V menjadi skala ~13.1V
+    const calibratedVoltage = Number(rawVoltage) * CALIBRATION_FACTOR;
+    
+    // Mengalikan 10 lalu ceil untuk membulatkan 1 desimal ke atas, lalu bagi 10
+    const roundedUp = (Math.ceil(calibratedVoltage * 10) / 10).toFixed(1);
+    return roundedUp;
+  };
+
   // Helper untuk parse tanggal UTC
   const parseDbDate = (dateStr) => {
     if (!dateStr) return null;
@@ -538,7 +549,9 @@ export default function Perangkat() {
                 <span className="text-sm font-medium text-slate-600">Baterai Panel</span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold px-2 py-0.5 bg-slate-200 rounded font-mono">
-                    {panelData?.isConnected && panelData?.battery_voltage != null ? `${panelData.battery_voltage} V` : "-"}
+                    {panelData?.isConnected && panelData?.battery_voltage != null 
+                      ? `${formatBatteryVoltage(panelData.battery_voltage)} V` 
+                      : "-"}
                   </span>
                   {renderStatusBadge(panelData?.isConnected && panelData?.battery_voltage != null ? "online" : "offline")}
                 </div>
