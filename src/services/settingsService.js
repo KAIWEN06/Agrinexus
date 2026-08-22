@@ -12,6 +12,7 @@ const mapDatabaseToSettings = (dbData) => {
     refreshInterval: dbData.refresh_interval,
     sendInterval: dbData.send_interval,
     monitoringMode: dbData.monitoring_mode,
+    powerSavingInterval: String(dbData.power_saving_interval ?? 300),
 
     // === MAPPING FAN CONTROL (GET) ===
     fanMode: dbData.fan_mode ?? "AUTO",
@@ -55,7 +56,6 @@ const mapDatabaseToSettings = (dbData) => {
     },
     notification: {
       dashboard: dbData.dashboard_notification,
-      email: dbData.email_notification,
       critical: dbData.critical_notification,
       healthLimit: dbData.health_limit,
     },
@@ -72,113 +72,94 @@ const mapDatabaseToSettings = (dbData) => {
 };
 
 /**
- * Memetakan struktur state React (camelCase) kembali ke kolom flat database (snake_case).
+ * Memetakan struktur state React (camelCase) kembali ke kolom flat database (snake_case)
+ * dengan validasi logika interval.
  */
 const mapSettingsToDatabase = (reactData) => {
   if (!reactData || typeof reactData !== "object") {
     throw new Error("Data pengaturan tidak valid.");
   }
 
+  const readSec = Number(reactData.refreshInterval ?? 5);
+  const sendSec = Number(reactData.sendInterval ?? 30);
+  const powerSec = Number(reactData.powerSavingInterval ?? 300);
+
+  // VALIDASI LOGIKA INTERVAL
+  if (readSec > sendSec) {
+    throw new Error("Interval Pembacaan Sensor tidak boleh melebihi Interval Pengiriman Data. Data harus dibaca terlebih dahulu sebelum dapat dikirim.");
+  }
+
+  if (reactData.monitoringMode === "power" && powerSec <= sendSec) {
+    throw new Error("Interval Hemat Daya harus lebih besar dari Interval Pengiriman Data agar Node memiliki cukup waktu untuk menyala, membaca, dan mengirimkan data.");
+  }
+
   const payload = {};
 
-  if (reactData.refreshInterval !== undefined)
-    payload.refresh_interval = reactData.refreshInterval;
-  if (reactData.sendInterval !== undefined)
-    payload.send_interval = reactData.sendInterval;
-  if (reactData.monitoringMode !== undefined)
-    payload.monitoring_mode = reactData.monitoringMode;
+  if (reactData.refreshInterval !== undefined) payload.refresh_interval = readSec;
+  if (reactData.sendInterval !== undefined) payload.send_interval = sendSec;
+  if (reactData.monitoringMode !== undefined) payload.monitoring_mode = reactData.monitoringMode;
+  if (reactData.powerSavingInterval !== undefined) payload.power_saving_interval = powerSec;
 
   // === MAPPING FAN CONTROL (SAVE) ===
   if (reactData.fanMode !== undefined) payload.fan_mode = reactData.fanMode;
-  if (reactData.fanThreshold !== undefined)
-    payload.fan_threshold = Number(reactData.fanThreshold);
-  if (reactData.fanManualTarget !== undefined)
-    payload.fan_manual_target = Boolean(reactData.fanManualTarget);
+  if (reactData.fanThreshold !== undefined) payload.fan_threshold = Number(reactData.fanThreshold);
+  if (reactData.fanManualTarget !== undefined) payload.fan_manual_target = Boolean(reactData.fanManualTarget);
 
   // === MAPPING NODE POWER CONTROL (SAVE) ===
-  if (reactData.nodePower !== undefined)
+  if (reactData.monitoringMode === "power") {
+    payload.node_power = true; // Mode Hemat Daya otomatis membutuhkan node_power = true di DB
+  } else if (reactData.nodePower !== undefined) {
     payload.node_power = Boolean(reactData.nodePower);
+  }
 
   if (reactData.weights) {
-    if (reactData.weights.temperature !== undefined)
-      payload.weight_temperature = reactData.weights.temperature;
-    if (reactData.weights.humidity !== undefined)
-      payload.weight_humidity = reactData.weights.humidity;
-    if (reactData.weights.soil !== undefined)
-      payload.weight_soil = reactData.weights.soil;
-    if (reactData.weights.light !== undefined)
-      payload.weight_light = reactData.weights.light;
+    if (reactData.weights.temperature !== undefined) payload.weight_temperature = reactData.weights.temperature;
+    if (reactData.weights.humidity !== undefined) payload.weight_humidity = reactData.weights.humidity;
+    if (reactData.weights.soil !== undefined) payload.weight_soil = reactData.weights.soil;
+    if (reactData.weights.light !== undefined) payload.weight_light = reactData.weights.light;
   }
 
   if (reactData.ranges) {
     if (reactData.ranges.temperature) {
-      if (reactData.ranges.temperature.min !== undefined)
-        payload.temperature_min = reactData.ranges.temperature.min;
-      if (reactData.ranges.temperature.idealMin !== undefined)
-        payload.temperature_ideal_min = reactData.ranges.temperature.idealMin;
-      if (reactData.ranges.temperature.idealMax !== undefined)
-        payload.temperature_ideal_max = reactData.ranges.temperature.idealMax;
-      if (reactData.ranges.temperature.max !== undefined)
-        payload.temperature_max = reactData.ranges.temperature.max;
+      if (reactData.ranges.temperature.min !== undefined) payload.temperature_min = reactData.ranges.temperature.min;
+      if (reactData.ranges.temperature.idealMin !== undefined) payload.temperature_ideal_min = reactData.ranges.temperature.idealMin;
+      if (reactData.ranges.temperature.idealMax !== undefined) payload.temperature_ideal_max = reactData.ranges.temperature.idealMax;
+      if (reactData.ranges.temperature.max !== undefined) payload.temperature_max = reactData.ranges.temperature.max;
     }
     if (reactData.ranges.humidity) {
-      if (reactData.ranges.humidity.min !== undefined)
-        payload.humidity_min = reactData.ranges.humidity.min;
-      if (reactData.ranges.humidity.idealMin !== undefined)
-        payload.humidity_ideal_min = reactData.ranges.humidity.idealMin;
-      if (reactData.ranges.humidity.idealMax !== undefined)
-        payload.humidity_ideal_max = reactData.ranges.humidity.idealMax;
-      if (reactData.ranges.humidity.max !== undefined)
-        payload.humidity_max = reactData.ranges.humidity.max;
+      if (reactData.ranges.humidity.min !== undefined) payload.humidity_min = reactData.ranges.humidity.min;
+      if (reactData.ranges.humidity.idealMin !== undefined) payload.humidity_ideal_min = reactData.ranges.humidity.idealMin;
+      if (reactData.ranges.humidity.idealMax !== undefined) payload.humidity_ideal_max = reactData.ranges.humidity.idealMax;
+      if (reactData.ranges.humidity.max !== undefined) payload.humidity_max = reactData.ranges.humidity.max;
     }
     if (reactData.ranges.soil) {
-      if (reactData.ranges.soil.min !== undefined)
-        payload.soil_min = reactData.ranges.soil.min;
-      if (reactData.ranges.soil.idealMin !== undefined)
-        payload.soil_ideal_min = reactData.ranges.soil.idealMin;
-      if (reactData.ranges.soil.idealMax !== undefined)
-        payload.soil_ideal_max = reactData.ranges.soil.idealMax;
-      if (reactData.ranges.soil.max !== undefined)
-        payload.soil_max = reactData.ranges.soil.max;
+      if (reactData.ranges.soil.min !== undefined) payload.soil_min = reactData.ranges.soil.min;
+      if (reactData.ranges.soil.idealMin !== undefined) payload.soil_ideal_min = reactData.ranges.soil.idealMin;
+      if (reactData.ranges.soil.idealMax !== undefined) payload.soil_ideal_max = reactData.ranges.soil.idealMax;
+      if (reactData.ranges.soil.max !== undefined) payload.soil_max = reactData.ranges.soil.max;
     }
     if (reactData.ranges.light) {
-      if (reactData.ranges.light.min !== undefined)
-        payload.light_min = Number(reactData.ranges.light.min);
-      if (reactData.ranges.light.idealMin !== undefined)
-        payload.light_ideal_min = Number(reactData.ranges.light.idealMin);
-      if (reactData.ranges.light.idealMax !== undefined)
-        payload.light_ideal_max = Number(reactData.ranges.light.idealMax);
-      if (reactData.ranges.light.max !== undefined)
-        payload.light_max = Number(reactData.ranges.light.max);
+      if (reactData.ranges.light.min !== undefined) payload.light_min = Number(reactData.ranges.light.min);
+      if (reactData.ranges.light.idealMin !== undefined) payload.light_ideal_min = Number(reactData.ranges.light.idealMin);
+      if (reactData.ranges.light.idealMax !== undefined) payload.light_ideal_max = Number(reactData.ranges.light.idealMax);
+      if (reactData.ranges.light.max !== undefined) payload.light_max = Number(reactData.ranges.light.max);
     }
   }
 
   if (reactData.notification) {
-    if (reactData.notification.dashboard !== undefined)
-      payload.dashboard_notification = reactData.notification.dashboard;
-    if (reactData.notification.email !== undefined)
-      payload.email_notification = reactData.notification.email;
-    if (reactData.notification.critical !== undefined)
-      payload.critical_notification = reactData.notification.critical;
-    if (reactData.notification.healthLimit !== undefined)
-      payload.health_limit = reactData.notification.healthLimit;
+    if (reactData.notification.dashboard !== undefined) payload.dashboard_notification = reactData.notification.dashboard;
+    if (reactData.notification.critical !== undefined) payload.critical_notification = reactData.notification.critical;
+    if (reactData.notification.healthLimit !== undefined) payload.health_limit = reactData.notification.healthLimit;
   }
 
-  if (reactData.tempAlertDuration !== undefined)
-    payload.temperature_alert_minutes = reactData.tempAlertDuration;
-  if (reactData.humidityAlertDuration !== undefined)
-    payload.humidity_alert_minutes = reactData.humidityAlertDuration;
-  if (reactData.soilAlertDuration !== undefined)
-    payload.soil_alert_minutes = reactData.soilAlertDuration;
-  if (reactData.lightAlertDuration !== undefined)
-    payload.light_alert_minutes = reactData.lightAlertDuration;
+  if (reactData.tempAlertDuration !== undefined) payload.temperature_alert_minutes = reactData.tempAlertDuration;
+  if (reactData.humidityAlertDuration !== undefined) payload.humidity_alert_minutes = reactData.humidityAlertDuration;
+  if (reactData.soilAlertDuration !== undefined) payload.soil_alert_minutes = reactData.soilAlertDuration;
+  if (reactData.lightAlertDuration !== undefined) payload.light_alert_minutes = reactData.lightAlertDuration;
 
-  if (reactData.nodeTimeout !== undefined)
-    payload.node_timeout = reactData.nodeTimeout;
-  if (reactData.minimumRSSI !== undefined)
-    payload.minimum_rssi = reactData.minimumRSSI;
-  if (reactData.batteryLimit !== undefined)
-    payload.battery_limit = reactData.batteryLimit;
+  if (reactData.nodeTimeout !== undefined) payload.node_timeout = Number(reactData.nodeTimeout);
+  if (reactData.minimumRSSI !== undefined) payload.minimum_rssi = Number(reactData.minimumRSSI);
+  if (reactData.batteryLimit !== undefined) payload.battery_limit = Number(reactData.batteryLimit);
 
   payload.updated_at = new Date().toISOString();
 
@@ -220,7 +201,6 @@ export const settingsService = {
     }
   },
 
-  // Mengambil Log Terbaru dari panel_logs untuk status telemetri fisik
   async getLatestPanelLog() {
     try {
       const { data, error } = await supabase

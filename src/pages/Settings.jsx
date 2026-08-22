@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Save, Power, Cpu, Sliders, Bell, Fan, AlertTriangle } from "lucide-react";
+import { Save, Power, Cpu, Sliders, Bell, Fan, Info } from "lucide-react";
+import toast from "react-hot-toast";
 
 import PageHeader from "../components/common/PageHeader";
 import Card from "../components/ui/Card";
@@ -10,7 +11,6 @@ import Select from "../components/ui/Select";
 import settingsService from "../services/settingsService";
 import { supabase } from "../lib/supabase";
 
-// Pesan & Penjelasan Otomatis untuk Semua Sensor dan Health Score
 const DEFAULT_ALERT_EXPLANATIONS = {
   lightAlertExplanation:
     "Perhatian: Pohon mengalami kekurangan cahaya berlarut-larut. Hal ini dapat mengakibatkan tumbuhnya jamur atau membuat hama cepat berkembang biak. Silakan melakukan cek berkala ke kebun dan bersihkan kebun agar pohon mendapat cahaya yang cukup.",
@@ -30,6 +30,7 @@ const DEFAULT_SETTINGS = {
   refreshInterval: "5",
   sendInterval: "30",
   monitoringMode: "realtime",
+  powerSavingInterval: "300",
   weights: {
     temperature: 25,
     humidity: 25,
@@ -44,7 +45,6 @@ const DEFAULT_SETTINGS = {
   },
   notification: {
     dashboard: true,
-    email: false,
     critical: true,
     healthLimit: 80,
     ...DEFAULT_ALERT_EXPLANATIONS,
@@ -62,38 +62,16 @@ const DEFAULT_SETTINGS = {
   fanManualTarget: false,
 };
 
-const notify = (message, type = "success") => {
-  if (typeof window !== "undefined" && window.toast) {
-    if (type === "success" && typeof window.toast.success === "function") {
-      window.toast.success(message);
-      return;
-    }
-    if (type === "error" && typeof window.toast.error === "function") {
-      window.toast.error(message);
-      return;
-    }
-  }
-  const toastEvent = new CustomEvent("toast", {
-    detail: { message, type },
-  });
-  window.dispatchEvent(toastEvent);
-};
-
 export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("node");
 
-  /* ======================================
-     Konfigurasi Monitoring
-  ====================================== */
   const [refreshInterval, setRefreshInterval] = useState("5");
   const [sendInterval, setSendInterval] = useState("30");
   const [monitoringMode, setMonitoringMode] = useState("realtime");
+  const [powerSavingInterval, setPowerSavingInterval] = useState("300");
 
-  /* ======================================
-     Bobot Health Score
-  ====================================== */
   const [weights, setWeights] = useState({
     temperature: 25,
     humidity: 25,
@@ -101,9 +79,6 @@ export default function Settings() {
     light: 20,
   });
 
-  /* ======================================
-     Rentang Ideal Sensor
-  ====================================== */
   const [ranges, setRanges] = useState({
     temperature: { min: 20, idealMin: 24, idealMax: 30, max: 35 },
     humidity: { min: 60, idealMin: 70, idealMax: 90, max: 95 },
@@ -111,43 +86,27 @@ export default function Settings() {
     light: { min: 5000, idealMin: 8000, idealMax: 18000, max: 25000 },
   });
 
-  /* ======================================
-     Pengaturan Notifikasi (Tanpa Form Edit Pesan)
-  ====================================== */
   const [notification, setNotification] = useState({
     dashboard: true,
-    email: false,
     critical: true,
     healthLimit: 80,
     ...DEFAULT_ALERT_EXPLANATIONS,
   });
 
-  /* ======================================
-     Parameter Alert Durations
-  ====================================== */
   const [tempAlertDuration, setTempAlertDuration] = useState("5m");
   const [soilAlertDuration, setSoilAlertDuration] = useState("10m");
   const [humidityAlertDuration, setHumidityAlertDuration] = useState("10m");
   const [lightAlertDuration, setLightAlertDuration] = useState("3d");
 
-  /* ======================================
-     Node & Gateway
-  ====================================== */
   const [nodeTimeout, setNodeTimeout] = useState("30");
   const [minimumRSSI, setMinimumRSSI] = useState("-90");
   const [batteryLimit, setBatteryLimit] = useState("20");
   const [nodePower, setNodePower] = useState(true);
 
-  /* ======================================
-     Fan Control State (Panel Box)
-  ====================================== */
   const [fanMode, setFanMode] = useState("AUTO");
   const [fanThreshold, setFanThreshold] = useState("35");
   const [fanManualTarget, setFanManualTarget] = useState(false);
 
-  /* ======================================
-     Real-Time Telemetry Status dari Device
-  ====================================== */
   const [fanStatus, setFanStatus] = useState(false);
   const [nodePowerStatus, setNodePowerStatus] = useState(true);
 
@@ -216,6 +175,7 @@ export default function Settings() {
     if (data.refreshInterval !== undefined) setRefreshInterval(String(data.refreshInterval));
     if (data.sendInterval !== undefined) setSendInterval(String(data.sendInterval));
     if (data.monitoringMode !== undefined) setMonitoringMode(String(data.monitoringMode));
+    if (data.powerSavingInterval !== undefined) setPowerSavingInterval(String(data.powerSavingInterval));
 
     if (data.fanMode !== undefined) setFanMode(String(data.fanMode));
     if (data.fanThreshold !== undefined) setFanThreshold(String(data.fanThreshold));
@@ -264,7 +224,6 @@ export default function Settings() {
     if (data.notification) {
       setNotification({
         dashboard: Boolean(data.notification.dashboard),
-        email: Boolean(data.notification.email),
         critical: Boolean(data.notification.critical),
         healthLimit: Number(data.notification.healthLimit ?? 80),
         lightAlertExplanation: data.notification.lightAlertExplanation || DEFAULT_ALERT_EXPLANATIONS.lightAlertExplanation,
@@ -294,7 +253,7 @@ export default function Settings() {
       if (Array.isArray(raw)) raw = raw[0];
       if (raw) applyDataToState(raw);
     } catch (err) {
-      notify(err.message || "Gagal memuat data dari server.", "error");
+      toast.error(err.message || "Gagal memuat data dari server.");
     } finally {
       setLoading(false);
     }
@@ -304,17 +263,49 @@ export default function Settings() {
     loadSettings();
   }, [loadSettings]);
 
+  // VALIDASI LOGIKA INTERRUPT / SECURE UI VALIDATION
+  const validateIntervals = () => {
+    const readSec = Number(refreshInterval);
+    const sendSec = Number(sendInterval);
+    const powerSec = Number(powerSavingInterval);
+
+    if (readSec > sendSec) {
+      toast.error(
+        "Interval Pembacaan Sensor tidak boleh lebih besar dari Interval Pengiriman Data! Data harus dibaca terlebih dahulu sebelum dapat dikirim."
+      );
+      return false;
+    }
+
+    if (monitoringMode === "power") {
+      if (powerSec <= sendSec) {
+        toast.error(
+          "Interval Hemat Daya harus lebih besar dari Interval Pengiriman Data agar Node memiliki waktu yang cukup untuk aktif, membaca sensor, dan mendistribusikan data ke server."
+        );
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleSave = async () => {
+    if (!validateIntervals()) return;
+
+    const saveToast = toast.loading("Menyimpan pengaturan sistem...");
+
     try {
       setSaving(true);
+      const finalNodePower = monitoringMode === "power" ? true : Boolean(nodePower);
+
       const payload = {
         refreshInterval: String(refreshInterval),
         sendInterval: String(sendInterval),
         monitoringMode: String(monitoringMode),
+        powerSavingInterval: String(powerSavingInterval),
         fanMode: String(fanMode),
         fanThreshold: Number(fanThreshold),
         fanManualTarget: Boolean(fanManualTarget),
-        nodePower: Boolean(nodePower),
+        nodePower: finalNodePower,
         weights: {
           temperature: Number(weights.temperature),
           humidity: Number(weights.humidity),
@@ -349,7 +340,6 @@ export default function Settings() {
         },
         notification: {
           dashboard: Boolean(notification.dashboard),
-          email: Boolean(notification.email),
           critical: Boolean(notification.critical),
           healthLimit: Number(notification.healthLimit),
           ...DEFAULT_ALERT_EXPLANATIONS,
@@ -364,22 +354,24 @@ export default function Settings() {
       };
 
       await settingsService.saveSettings(payload);
-      notify("Pengaturan berhasil disimpan.", "success");
+      toast.success("Pengaturan berhasil disimpan.", { id: saveToast });
     } catch (err) {
-      notify(err.message || "Gagal menyimpan perubahan.", "error");
+      toast.error(err.message || "Gagal menyimpan perubahan.", { id: saveToast });
     } finally {
       setSaving(false);
     }
   };
 
   const handleReset = async () => {
+    const resetToast = toast.loading("Mengembalikan pengaturan...");
+
     try {
       setSaving(true);
       applyDataToState(DEFAULT_SETTINGS);
       await settingsService.saveSettings(DEFAULT_SETTINGS);
-      notify("Pengaturan dikembalikan ke default.", "success");
+      toast.success("Pengaturan dikembalikan ke default.", { id: resetToast });
     } catch (err) {
-      notify(err.message || "Gagal mengembalikan pengaturan.", "error");
+      toast.error(err.message || "Gagal mengembalikan pengaturan.", { id: resetToast });
     } finally {
       setSaving(false);
     }
@@ -403,7 +395,6 @@ export default function Settings() {
         description="Kelola konfigurasi perangkat node, kontrol panel fisik, serta parameter kesehatan dan notifikasi kebun."
       />
 
-      {/* Navigasi Tab Utama */}
       <div className="mb-6 flex space-x-2 border-b border-[var(--border)] pb-2">
         <button
           onClick={() => setActiveTab("node")}
@@ -443,9 +434,6 @@ export default function Settings() {
       </div>
 
       <div className="space-y-6">
-        {/* =================================================================
-            BAGIAN 1: NODE
-        ================================================================= */}
         {activeTab === "node" && (
           <div className="space-y-6">
             <Card className="p-6">
@@ -456,7 +444,7 @@ export default function Settings() {
                 </p>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
                 <Select
                   label="Interval Pembacaan Sensor"
                   value={refreshInterval}
@@ -487,8 +475,27 @@ export default function Settings() {
                   onValueChange={setMonitoringMode}
                   helperText="Mode operasi hemat daya atau real-time."
                 >
-                  <Select.Item value="realtime">Real-time</Select.Item>
+                  <Select.Item value="realtime">Normal</Select.Item>
                   <Select.Item value="power">Hemat Daya</Select.Item>
+                </Select>
+
+                <Select
+                  label="Interval Hemat Daya"
+                  value={powerSavingInterval}
+                  onValueChange={setPowerSavingInterval}
+                  disabled={monitoringMode !== "power"}
+                  helperText={
+                    monitoringMode === "power"
+                      ? "Durasi siklus node mati & menyala otomatis."
+                      : "Hanya aktif saat Mode Hemat Daya dipilih."
+                  }
+                >
+                  <Select.Item value="60">1 Menit</Select.Item>
+                  <Select.Item value="300">5 Menit</Select.Item>
+                  <Select.Item value="600">10 Menit</Select.Item>
+                  <Select.Item value="900">15 Menit</Select.Item>
+                  <Select.Item value="1800">30 Menit</Select.Item>
+                  <Select.Item value="3600">1 Jam</Select.Item>
                 </Select>
               </div>
             </Card>
@@ -510,15 +517,25 @@ export default function Settings() {
                     Kontrol arus daya fisik ke Node dari perangkat Gateway.
                   </p>
 
+                  {monitoringMode === "power" && (
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-600 dark:text-amber-400">
+                      <Info size={16} className="mt-0.5 shrink-0" />
+                      <p className="text-xs">
+                        Kontrol manual dinonaktifkan karena <strong>Mode Hemat Daya</strong> sedang aktif. Daya node diatur otomatis sesuai interval hemat daya.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex gap-3 pt-2">
                     <button
                       type="button"
+                      disabled={monitoringMode === "power"}
                       onClick={() => setNodePower(false)}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-medium transition-all ${
                         !nodePower
                           ? "bg-rose-600 text-white shadow-md ring-2 ring-rose-600/30 font-semibold"
                           : "bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-rose-500/10 hover:text-rose-600 border border-[var(--border)]"
-                      }`}
+                      } ${monitoringMode === "power" ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <Power size={18} className="shrink-0" />
                       <span className="text-xs sm:text-sm">MATI</span>
@@ -526,12 +543,13 @@ export default function Settings() {
 
                     <button
                       type="button"
+                      disabled={monitoringMode === "power"}
                       onClick={() => setNodePower(true)}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-medium transition-all ${
                         nodePower
                           ? "bg-emerald-600 text-white shadow-md ring-2 ring-emerald-600/30 font-semibold"
                           : "bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-emerald-500/10 hover:text-emerald-600 border border-[var(--border)]"
-                      }`}
+                      } ${monitoringMode === "power" ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <Power size={18} className="shrink-0" />
                       <span className="text-xs sm:text-sm">MENYALA</span>
@@ -593,9 +611,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* =================================================================
-            BAGIAN 2: PANEL
-        ================================================================= */}
         {activeTab === "panel" && (
           <div className="space-y-6">
             <Card className="p-6">
@@ -700,12 +715,8 @@ export default function Settings() {
           </div>
         )}
 
-        {/* =================================================================
-            BAGIAN 3: NOTIFIKASI
-        ================================================================= */}
         {activeTab === "notification" && (
           <div className="space-y-6">
-            {/* Sub-bagian 1: Parameter Kesehatan Kebun */}
             <Card className="p-6">
               <div className="mb-6">
                 <h2 className="text-xl font-semibold">Parameter Kesehatan Kebun</h2>
@@ -763,7 +774,6 @@ export default function Settings() {
               </div>
             </Card>
 
-            {/* Sub-bagian 2: Rentang Ideal Sensor */}
             <Card className="p-6">
               <div className="mb-6">
                 <h2 className="text-xl font-semibold">Rentang Ideal Sensor</h2>
@@ -815,7 +825,6 @@ export default function Settings() {
               </div>
             </Card>
 
-            {/* Sub-bagian 3: Saluran & Ambang Notifikasi */}
             <Card className="p-6">
               <div className="mb-6">
                 <h2 className="text-xl font-semibold">Pengaturan Saluran & Ambang Notifikasi</h2>
@@ -826,11 +835,6 @@ export default function Settings() {
 
               <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
                 <Select label="Notifikasi Dashboard" value={notification.dashboard ? "on" : "off"} onValueChange={(val) => setNotification({ ...notification, dashboard: val === "on" })}>
-                  <Select.Item value="on">Aktif</Select.Item>
-                  <Select.Item value="off">Nonaktif</Select.Item>
-                </Select>
-
-                <Select label="Email Notifikasi" value={notification.email ? "on" : "off"} onValueChange={(val) => setNotification({ ...notification, email: val === "on" })}>
                   <Select.Item value="on">Aktif</Select.Item>
                   <Select.Item value="off">Nonaktif</Select.Item>
                 </Select>
@@ -852,7 +856,6 @@ export default function Settings() {
               </div>
             </Card>
 
-            {/* Sub-bagian 4: Parameter Durasi Alert */}
             <Card className="p-6">
               <div className="mb-6 flex items-center gap-2">
                 <div>
@@ -913,7 +916,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Tombol Aksi Global */}
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end pt-4 border-t border-[var(--border)]">
           <Button
             variant="outline"

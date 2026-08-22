@@ -10,5 +10,6 @@ export const ROUTES = {
   NOTIFICATIONS: "/notifications",
   PERANGKAT: "/perangkat",
   SETTINGS: "/settings",
-  PROFILE: "/profile"
+  PROFILE: "/profile",
+  USERS: "/users"
 };

@@ -4,38 +4,47 @@ import {
   History,
   Bell,
   Settings,
-  User
-} from "lucide-react";
+  User,
+  Users // Import ikon Users
+} from "lucide-react"; //[cite: 17]
+
+import { ROUTES } from "./routes";
 
 export const menu = [
   {
     title: "Beranda",
-    path: "/dashboard",
+    path: ROUTES.DASHBOARD || "/dashboard",
     icon: LayoutDashboard
   },
   {
     title: "Riwayat",
-    path: "/history",
+    path: ROUTES.HISTORY || "/history",
     icon: History
   },
   {
     title: "Notifikasi",
-    path: "/notifications",
+    path: ROUTES.NOTIFICATIONS || "/notifications",
     icon: Bell
   },
   {
     title: "Perangkat",
-    path: "/perangkat", // bisa disesuaikan jadi /perangkat jika perlu
+    path: ROUTES.PERANGKAT || "/perangkat",
     icon: Cpu
   },
   {
     title: "Pengaturan",
-    path: "/settings",
+    path: ROUTES.SETTINGS || "/settings",
     icon: Settings
   },
   {
     title: "Profil",
-    path: "/profile",
+    path: ROUTES.PROFILE || "/profile",
     icon: User
+  },
+  {
+    title: "Manajemen Akun", // Menu baru khusus Administrator
+    path: ROUTES.USERS || "/users",
+    icon: Users,
+    roles: ["Administrator"]
   }
 ];
