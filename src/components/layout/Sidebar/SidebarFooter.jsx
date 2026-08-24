@@ -78,7 +78,7 @@ export default function SidebarFooter({
       {!collapsed && (
         <p className="text-center text-xs text-[var(--text-secondary)]">
           Versi
-           {APP_VERSION}
+          y {APP_VERSION}
         </p>
       )}
 
