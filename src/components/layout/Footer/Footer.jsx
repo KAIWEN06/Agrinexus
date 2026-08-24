@@ -40,7 +40,7 @@ export default function Footer() {
           text-[var(--text-secondary)]
         "
       >
-        v{APP_VERSION}
+        {APP_VERSION}
       </span>
     </footer>
   );
