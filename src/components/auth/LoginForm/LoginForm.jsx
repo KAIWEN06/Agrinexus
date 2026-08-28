@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { LogIn } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -22,6 +22,18 @@ export default function LoginForm() {
   });
 
   const [errors, setErrors] = useState({});
+
+  // Auto-fill email dari localStorage jika ada data tersimpan
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("rememberedEmail");
+    if (savedEmail) {
+      setForm((prev) => ({
+        ...prev,
+        email: savedEmail,
+        remember: true,
+      }));
+    }
+  }, []);
 
   const isValid = useMemo(() => {
     return (
@@ -103,7 +115,6 @@ export default function LoginForm() {
       noValidate
     >
       {/* Header */}
-
       <div className="space-y-2 text-center">
         <h1 className="text-3xl font-bold text-[var(--foreground)]">
           Masuk
@@ -116,7 +127,6 @@ export default function LoginForm() {
       </div>
 
       {/* Email */}
-
       <Input
         label="Alamat Email"
         type="email"
@@ -127,7 +137,6 @@ export default function LoginForm() {
       />
 
       {/* Password */}
-
       <PasswordInput
         label="Kata Sandi"
         placeholder="Masukkan kata sandi"
@@ -137,7 +146,6 @@ export default function LoginForm() {
       />
 
       {/* Remember */}
-
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -145,7 +153,6 @@ export default function LoginForm() {
             checked={form.remember}
             onChange={handleChange("remember")}
           />
-
           Ingat saya
         </label>
 
@@ -158,7 +165,6 @@ export default function LoginForm() {
       </div>
 
       {/* Submit */}
-
       <Button
         type="submit"
         fullWidth

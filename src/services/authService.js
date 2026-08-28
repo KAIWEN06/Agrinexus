@@ -14,12 +14,12 @@ export async function login(email, password, remember = false) {
     throw error;
   }
 
-  /*
-   * Belum digunakan.
-   * Nanti bisa dipakai untuk menyimpan preferensi
-   * "Remember Me" menggunakan localStorage.
-   */
-  void remember;
+  // Kelola penyimpanan email berbasis "Ingat Saya"
+  if (remember) {
+    localStorage.setItem("rememberedEmail", email);
+  } else {
+    localStorage.removeItem("rememberedEmail");
+  }
 
   return data;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { UserPlus, Trash2, Edit2, RotateCw, Mail, Phone, MapPin, Check, X, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -6,6 +6,7 @@ import PageHeader from "../components/common/PageHeader";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button/index";
 import Input from "../components/ui/Input/index";
+import PasswordInput from "../components/ui/PasswordInput/index";
 import Modal from "../components/ui/Modal/index";
 import Badge from "../components/ui/Badge/index";
 
@@ -13,12 +14,16 @@ import { getUsers, updateUser, deleteUser } from "../services/userService";
 import { supabase } from "../lib/supabase";
 
 const ROLES = ["Administrator", "Developer", "TIM PKM-PI", "Petani"];
+const SUBMIT_COOLDOWN_MS = 3000; // Cooldown 3 detik untuk proteksi anti-spam
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   
+  // Ref untuk melacak timestamp penekanan tombol submit terakhir (Anti-spam)
+  const lastSubmitTimeRef = useRef(0);
+
   // State untuk Modal Tambah Akun Baru
   const [openModal, setOpenModal] = useState(false);
 
@@ -61,10 +66,31 @@ export default function UserManagement() {
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
+
+    // 1. Perlindungan State: Cegah jika sedang dalam proses pendaftaran
     if (submitting) return;
 
+    // 2. Perlindungan Cooldown / Anti-Spam Time Guard
+    const now = Date.now();
+    if (now - lastSubmitTimeRef.current < SUBMIT_COOLDOWN_MS) {
+      toast.error("Mohon tunggu beberapa detik sebelum mencoba kembali.");
+      return;
+    }
+    lastSubmitTimeRef.current = now;
+
+    // Validasi form
     if (!newUserData.full_name.trim()) {
       toast.error("Nama lengkap wajib diisi.");
+      return;
+    }
+
+    if (!newUserData.password) {
+      toast.error("Password wajib diisi.");
+      return;
+    }
+
+    if (newUserData.password.length < 6) {
+      toast.error("Password minimal harus 6 karakter.");
       return;
     }
 
@@ -498,100 +524,100 @@ export default function UserManagement() {
         </div>
       </Card>
 
-{/* MODAL FORM TAMBAH USER BARU - Hanya dirender jika openModal === true */}
-{openModal && (
-  <Modal
-    isOpen={openModal}
-    onClose={() => !submitting && setOpenModal(false)}
-    title="Tambah Akun Pengguna Baru"
-  >
-    <form onSubmit={handleAddSubmit} className="space-y-4">
-      <Input
-        label="Nama Lengkap"
-        placeholder="Masukkan nama lengkap"
-        value={newUserData.full_name}
-        onChange={(e) => setNewUserData({ ...newUserData, full_name: e.target.value })}
-        disabled={submitting}
-        required
-      />
-
-      <Input
-        label="Email"
-        type="email"
-        placeholder="nama@domain.com"
-        value={newUserData.email}
-        onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
-        disabled={submitting}
-        required
-      />
-
-      <Input
-        label="Password"
-        type="password"
-        placeholder="Minimal 6 karakter"
-        value={newUserData.password}
-        onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
-        disabled={submitting}
-        required
-      />
-
-      <div>
-        <label className="block text-sm font-medium mb-1.5 text-[var(--foreground)]">
-          Peran (Role)
-        </label>
-        <select
-          className="w-full h-10 px-3 rounded-md border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-          value={newUserData.role}
-          onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
-          disabled={submitting}
+      {/* MODAL FORM TAMBAH USER BARU - Hanya dirender jika openModal === true */}
+      {openModal && (
+        <Modal
+          isOpen={openModal}
+          onClose={() => !submitting && setOpenModal(false)}
+          title="Tambah Akun Pengguna Baru"
         >
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-      </div>
+          <form onSubmit={handleAddSubmit} className="space-y-4">
+            <Input
+              label="Nama Lengkap"
+              placeholder="Masukkan nama lengkap"
+              value={newUserData.full_name}
+              onChange={(e) => setNewUserData({ ...newUserData, full_name: e.target.value })}
+              disabled={submitting}
+              required
+            />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Input
-          label="Nomor Telepon"
-          placeholder="0812xxxx"
-          value={newUserData.phone}
-          onChange={(e) => setNewUserData({ ...newUserData, phone: e.target.value })}
-          disabled={submitting}
-        />
+            <Input
+              label="Email"
+              type="email"
+              placeholder="nama@domain.com"
+              value={newUserData.email}
+              onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+              disabled={submitting}
+              required
+            />
 
-        <Input
-          label="Lokasi"
-          placeholder="Kota / Wilayah"
-          value={newUserData.location}
-          onChange={(e) => setNewUserData({ ...newUserData, location: e.target.value })}
-          disabled={submitting}
-        />
-      </div>
+            <PasswordInput
+              label="Password"
+              placeholder="Minimal 6 karakter"
+              value={newUserData.password}
+              onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
+              disabled={submitting}
+              required
+            />
 
-      <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t border-[var(--border)]">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setOpenModal(false)}
-          disabled={submitting}
-          className="w-full sm:w-auto justify-center"
-        >
-          Batal
-        </Button>
-        <Button 
-          type="submit" 
-          loading={submitting}
-          className="w-full sm:w-auto justify-center"
-        >
-          Buat Akun
-        </Button>
-      </div>
-    </form>
-  </Modal>
-)}
+            <div>
+              <label className="block text-sm font-medium mb-1.5 text-[var(--foreground)]">
+                Peran (Role)
+              </label>
+              <select
+                className="w-full h-10 px-3 rounded-md border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                value={newUserData.role}
+                onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
+                disabled={submitting}
+              >
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Nomor Telepon"
+                placeholder="0812xxxx"
+                value={newUserData.phone}
+                onChange={(e) => setNewUserData({ ...newUserData, phone: e.target.value })}
+                disabled={submitting}
+              />
+
+              <Input
+                label="Lokasi"
+                placeholder="Kota / Wilayah"
+                value={newUserData.location}
+                onChange={(e) => setNewUserData({ ...newUserData, location: e.target.value })}
+                disabled={submitting}
+              />
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t border-[var(--border)]">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpenModal(false)}
+                disabled={submitting}
+                className="w-full sm:w-auto justify-center"
+              >
+                Batal
+              </Button>
+              <Button 
+                type="submit" 
+                loading={submitting}
+                disabled={submitting}
+                className="w-full sm:w-auto justify-center"
+              >
+                Buat Akun
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </>
   );
 }
