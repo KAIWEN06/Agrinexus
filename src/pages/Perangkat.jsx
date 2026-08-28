@@ -131,7 +131,7 @@ export default function Perangkat() {
               airTempHumidity: {
                 status: isPowerOff || isNodeOffline || !isAhtOk 
                   ? "offline" 
-                  : (latestReading?.temperature != null && latestReading?.humidity != null ? `${latestReading.temperature}°C / ${latestReading.humidity}%` : "-"),
+                  : (latestReading?.temperature != null && latestReading?.humidity != null ? "online" : "error"),
                 value: latestReading?.temperature != null ? `${latestReading.temperature}°C / ${latestReading.humidity}%` : "-",
                 isOk: isAhtOk
               },
@@ -236,7 +236,7 @@ export default function Perangkat() {
       list.push({
         source: "Panel Utama",
         issue: "Koneksi Panel Terputus / PCB Tanpa Daya",
-        solution: "Periksa catu daya (power supply) pada Box Panel Utama. Pastikan PCB menyala dan modul penerima/pengirim sinyal terhubung ke internet."
+        solution: "Periksa catu daya (power supply) pada Box Panel Utama. Pastikan PCB menyala dan modul penerima/pengirim sinyal terhubung ke internet, pastikan kouta pada modul internet tidak habis."
       });
     } else {
       if (boxTemp > fanThreshold) {

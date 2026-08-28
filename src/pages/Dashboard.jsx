@@ -20,6 +20,9 @@ import HealthScoreChart from "../components/charts/HealthScoreChart";
 import RainStatusCard from "../components/cards/RainStatusCard";
 import RainChart from "../components/charts/RainChart";
 
+// Import Agronomic Reasoning Engine dari folder services
+import { generateAgronomicReasoning } from "../services/agriReasoningEngine";
+
 /* ==========================================
    Helper Functions
 ========================================== */
@@ -40,7 +43,6 @@ const median = (values) => {
     : sorted[middle];
 };
 
-// Fungsi menghitung % tren perubahan (Naik / Turun)
 const calculateTrend = (current, previous) => {
   if (
     previous === null ||
@@ -56,19 +58,29 @@ const calculateTrend = (current, previous) => {
 };
 
 export default function Dashboard() {
-  const { dashboard, loading, error } = useDashboard(); //[cite: 1, 3]
-
-  // State untuk Tab Node (null = Semua Node)
+  const { dashboard, loading, error } = useDashboard();
   const [selectedNodeId, setSelectedNodeId] = useState(null);
 
   const {
     rawReadings = [],
+    settings = {},
     charts,
     panel,
     sensorNodes = [],
-  } = dashboard || {}; //[cite: 1, 3]
+  } = dashboard || {};
 
-  // Filter & Kalkulasi Parameter Sensor + Trend Berdasarkan Tab
+  const limits = useMemo(() => ({
+    tempMin: Number(settings.temperature_ideal_min ?? settings.temperature_min ?? 24),
+    tempMax: Number(settings.temperature_ideal_max ?? settings.temperature_max ?? 32),
+    humMin: Number(settings.humidity_ideal_min ?? settings.humidity_min ?? 70),
+    humMax: Number(settings.humidity_ideal_max ?? settings.humidity_max ?? 90),
+    soilMin: Number(settings.soil_ideal_min ?? settings.soil_min ?? 45),
+    soilMax: Number(settings.soil_ideal_max ?? settings.soil_max ?? 80),
+    lightMin: Number(settings.light_ideal_min ?? settings.light_min ?? 8000),
+    lightMax: Number(settings.light_ideal_max ?? settings.light_max ?? 25000),
+    healthLimit: Number(settings.health_limit ?? 80),
+  }), [settings]);
+
   const activeNodeData = useMemo(() => {
     if (!rawReadings || rawReadings.length === 0) {
       return {
@@ -78,12 +90,21 @@ export default function Dashboard() {
           soil: { value: 0, status: "-", trend: 0 },
           light: { value: 0, status: "-", trend: 0 },
         },
-        health: { score: 0, status: "-", description: "-" },
+        health: {
+          score: 0,
+          status: "Tidak Diketahui",
+          description: "-",
+          insights: [],
+          reasoning: null,
+        },
       };
     }
 
+    // Ambil histori panel_logs jika tersedia dari dashboard
+    const panelLogs = dashboard?.panelLogs || charts?.rain || [];
+
     if (selectedNodeId === null) {
-      // 1. SEMUA NODE (Menggunakan Nilai Median & Tren Pembacaan Terakhir vs Sebelumnya)
+      // SEMUA NODE (Menggunakan Median)
       const latest = rawReadings[0];
       const previous = rawReadings[1];
 
@@ -93,108 +114,124 @@ export default function Dashboard() {
       const medLight = median(rawReadings.map((r) => r.light_intensity));
       const medHealth = median(rawReadings.map((r) => r.health_score));
 
-      return {
-        statistics: {
-          temperature: {
-            value: Number(medTemp.toFixed(1)),
-            status: getStatus(medTemp, 24, 32),
-            trend: calculateTrend(latest?.temperature, previous?.temperature),
-            trendLabel: "dibandingkan sebelumnya",
-          },
-          humidity: {
-            value: Number(medHum.toFixed(1)),
-            status: getStatus(medHum, 70, 90),
-            trend: calculateTrend(latest?.humidity, previous?.humidity),
-            trendLabel: "dibandingkan sebelumnya",
-          },
-          soil: {
-            value: Number(medSoil.toFixed(1)),
-            status: getStatus(medSoil, 45, 80),
-            trend: calculateTrend(latest?.soil_moisture, previous?.soil_moisture),
-            trendLabel: "dibandingkan sebelumnya",
-          },
-          light: {
-            value: Number(medLight.toFixed(0)),
-            status: getStatus(medLight, 8000, 25000),
-            trend: calculateTrend(latest?.light_intensity, previous?.light_intensity),
-            trendLabel: "dibandingkan sebelumnya",
-          },
+      const statistics = {
+        temperature: {
+          value: Number(medTemp.toFixed(1)),
+          status: getStatus(medTemp, limits.tempMin, limits.tempMax),
+          trend: calculateTrend(latest?.temperature, previous?.temperature),
+          trendLabel: "dibandingkan sebelumnya",
         },
+        humidity: {
+          value: Number(medHum.toFixed(1)),
+          status: getStatus(medHum, limits.humMin, limits.humMax),
+          trend: calculateTrend(latest?.humidity, previous?.humidity),
+          trendLabel: "dibandingkan sebelumnya",
+        },
+        soil: {
+          value: Number(medSoil.toFixed(1)),
+          status: getStatus(medSoil, limits.soilMin, limits.soilMax),
+          trend: calculateTrend(latest?.soil_moisture, previous?.soil_moisture),
+          trendLabel: "dibandingkan sebelumnya",
+        },
+        light: {
+          value: Number(medLight.toFixed(0)),
+          status: getStatus(medLight, limits.lightMin, limits.lightMax),
+          trend: calculateTrend(latest?.light_intensity, previous?.light_intensity),
+          trendLabel: "dibandingkan sebelumnya",
+        },
+      };
+
+      // Jalankan Reasoning Engine Agronomis untuk Semua Node
+      const reasoning = generateAgronomicReasoning(
+        statistics,
+        settings,
+        panelLogs,
+        rawReadings,
+        Number(medHealth.toFixed(1))
+      );
+
+      return {
+        statistics,
         health: {
-          score: Number(medHealth.toFixed(1)),
-          status:
-            medHealth >= 80
-              ? "Sehat"
-              : medHealth >= 60
-              ? "Perlu Perhatian"
-              : "Kritis",
-          description: "Berdasarkan median seluruh node.",
+          score: reasoning.health_score,
+          status: reasoning.overall_status,
+          severity: reasoning.severity,
+          description: "Nilai agregat median dari seluruh node perkebunan.",
+          reasoning: reasoning, // Penyimpanan objek JSON reasoning lengkap
         },
       };
     } else {
-      // 2. PER NODE (Ambil 2 Data Terbaru Milik Node Tersebut)
+      // PER NODE (Filter spesifik device_id)
       const nodeReadings = rawReadings.filter(
-        (r) => r.device_id === selectedNodeId
+        (r) => Number(r.device_id) === Number(selectedNodeId)
       );
-      const latest = nodeReadings[0];
-      const previous = nodeReadings[1];
+      
+      const latest = nodeReadings[0] || {};
+      const previous = nodeReadings[1] || {};
 
-      const temp = latest ? Number(latest.temperature) : 0;
-      const hum = latest ? Number(latest.humidity) : 0;
-      const soil = latest ? Number(latest.soil_moisture) : 0;
-      const light = latest ? Number(latest.light_intensity) : 0;
-      const healthScore = latest ? Number(latest.health_score) : 0;
+      const temp = Number(latest.temperature ?? 0);
+      const hum = Number(latest.humidity ?? 0);
+      const soil = Number(latest.soil_moisture ?? 0);
+      const light = Number(latest.light_intensity ?? 0);
+      const healthScore = Number(latest.health_score ?? 0);
 
-      const selectedNodeObj = sensorNodes.find((n) => n.id === selectedNodeId);
+      const selectedNodeObj = sensorNodes.find((n) => Number(n.id) === Number(selectedNodeId));
+
+      const statistics = {
+        temperature: {
+          value: temp,
+          status: getStatus(temp, limits.tempMin, limits.tempMax),
+          trend: calculateTrend(latest?.temperature, previous?.temperature),
+          trendLabel: "dibandingkan sebelumnya",
+        },
+        humidity: {
+          value: hum,
+          status: getStatus(hum, limits.humMin, limits.humMax),
+          trend: calculateTrend(latest?.humidity, previous?.humidity),
+          trendLabel: "dibandingkan sebelumnya",
+        },
+        soil: {
+          value: soil,
+          status: getStatus(soil, limits.soilMin, limits.soilMax),
+          trend: calculateTrend(latest?.soil_moisture, previous?.soil_moisture),
+          trendLabel: "dibandingkan sebelumnya",
+        },
+        light: {
+          value: light,
+          status: getStatus(light, limits.lightMin, limits.lightMax),
+          trend: calculateTrend(latest?.light_intensity, previous?.light_intensity),
+          trendLabel: "dibandingkan sebelumnya",
+        },
+      };
+
+      // Jalankan Reasoning Engine Agronomis untuk Node Terpilih
+      const reasoning = generateAgronomicReasoning(
+        statistics,
+        settings,
+        panelLogs,
+        nodeReadings,
+        healthScore
+      );
 
       return {
-        statistics: {
-          temperature: {
-            value: temp,
-            status: getStatus(temp, 24, 32),
-            trend: calculateTrend(latest?.temperature, previous?.temperature),
-            trendLabel: "dibandingkan sebelumnya",
-          },
-          humidity: {
-            value: hum,
-            status: getStatus(hum, 70, 90),
-            trend: calculateTrend(latest?.humidity, previous?.humidity),
-            trendLabel: "dibandingkan sebelumnya",
-          },
-          soil: {
-            value: soil,
-            status: getStatus(soil, 45, 80),
-            trend: calculateTrend(latest?.soil_moisture, previous?.soil_moisture),
-            trendLabel: "dibandingkan sebelumnya",
-          },
-          light: {
-            value: light,
-            status: getStatus(light, 8000, 25000),
-            trend: calculateTrend(latest?.light_intensity, previous?.light_intensity),
-            trendLabel: "dibandingkan sebelumnya",
-          },
-        },
+        statistics,
         health: {
-          score: healthScore,
-          status:
-            healthScore >= 80
-              ? "Sehat"
-              : healthScore >= 60
-              ? "Perlu Perhatian"
-              : "Kritis",
-          description: `Kondisi node ${selectedNodeObj?.name || ""}.`,
+          score: reasoning.health_score,
+          status: reasoning.overall_status,
+          severity: reasoning.severity,
+          description: `Kondisi node khusus: ${selectedNodeObj?.name || `Node ${selectedNodeId}`}.`,
+          reasoning: reasoning, // Penyimpanan objek JSON reasoning lengkap
         },
       };
     }
-  }, [rawReadings, selectedNodeId, sensorNodes]);
+  }, [rawReadings, selectedNodeId, sensorNodes, limits, settings, dashboard, charts]);
 
-  // Dynamic Filter Chart Per Node
   const filteredCharts = useMemo(() => {
     if (!charts) return {};
     if (selectedNodeId === null) return charts;
 
     const filterByNode = (dataList = []) =>
-      dataList.filter((item) => item.device_id === selectedNodeId);
+      dataList.filter((item) => Number(item.device_id) === Number(selectedNodeId));
 
     return {
       temperature: filterByNode(charts.temperature),
@@ -206,18 +243,18 @@ export default function Dashboard() {
     };
   }, [charts, selectedNodeId]);
 
-  if (loading || !dashboard) { //[cite: 1, 3]
+  if (loading || !dashboard) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <p className="text-gray-500">Memuat beranda...</p> {/*[cite: 1, 3] */}
+        <p className="text-gray-500">Memuat beranda...</p>
       </div>
     );
   }
 
-  if (error) { //[cite: 1, 3]
+  if (error) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-600">
-        Gagal memuat data beranda. {/*[cite: 1, 3] */}
+        Gagal memuat data beranda.
       </div>
     );
   }
@@ -228,16 +265,15 @@ export default function Dashboard() {
     day: "numeric",
     month: "long",
     year: "numeric",
-  }); //[cite: 1, 3]
+  });
 
   const currentTime = now.toLocaleTimeString("id-ID", {
     hour: "2-digit",
     minute: "2-digit",
-  }); //[cite: 1, 3]
+  });
 
   return (
     <>
-      {/* Header Utama */}
       <PageHeader
         title="Beranda"
         description="Memantau kondisi lingkungan perkebunan secara real-time."
@@ -251,9 +287,9 @@ export default function Dashboard() {
             </p>
           </div>
         }
-      /> {/*[cite: 1, 3] */}
+      />
 
-      {/* Tab Selector Node (Paling Atas) */}
+      {/* Selector Tab Node */}
       <div className="mt-6 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
         <button
           onClick={() => setSelectedNodeId(null)}
@@ -287,7 +323,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Parameter Sensor Overview */}
+      {/* Parameter Sensor */}
       <section className="mt-6">
         <PageHeader
           title="Parameter Sensor"
@@ -341,40 +377,42 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Panel Kontrol (Status Hujan) */}
+      {/* Panel Kontrol - Hujan */}
       <section className="mt-8">
         <PageHeader
-          title="Panel Kontrol"
-          description="Monitoring sensor hujan dan status panel kontrol."
-        /> {/*[cite: 1, 3] */}
+          title="Panel Kontrol Terpusat"
+          description="Monitoring sensor hujan dan status stasiun panel utama."
+        />
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           <RainStatusCard
-            status={panel.rain.status}
-            intensity={panel.rain.intensity}
-            updatedAt={panel.rain.updatedAt}
-          /> {/*[cite: 1, 3] */}
+            status={panel?.rain?.status}
+            intensity={panel?.rain?.intensity}
+            updatedAt={panel?.rain?.updatedAt}
+          />
         </div>
       </section>
 
-      {/* Grafik Monitoring */}
+      {/* Grafik Monitoring & Hasil Reasoning Engine */}
       <section className="mt-8">
         <PageHeader
-          title="Grafik Monitoring"
-          description="Visualisasi statistik parameter sensor, skor kesehatan, dan riwayat hujan."
+          title="Grafik & Analisis Agronomis"
+          description="Visualisasi parameter serta hasil diagnosa pintar mengenai akar masalah dan tindakan presisi."
         />
 
         <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {/* Skor Kesehatan */}
-          <HealthScoreChart score={activeNodeData.health.score} />
+          <HealthScoreChart
+            score={activeNodeData.health.score}
+            status={activeNodeData.health.status}
+            severity={activeNodeData.health.severity}
+            description={activeNodeData.health.description}
+            reasoning={activeNodeData.health.reasoning}
+          />
 
-          {/* Grafik Sensor */}
           <TemperatureChart data={filteredCharts.temperature} />
           <HumidityChart data={filteredCharts.humidity} />
           <SoilMoistureChart data={filteredCharts.soil} />
           <LightChart data={filteredCharts.light} />
-
-          {/* Grafik Hujan (Satu Layout) */}
           <RainChart data={filteredCharts.rain} />
         </div>
       </section>
@@ -384,16 +422,16 @@ export default function Dashboard() {
         <PageHeader
           title="Daftar Node Sensor"
           description="Status seluruh node sensor yang terhubung ke sistem."
-        /> {/*[cite: 1, 3] */}
+        />
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {sensorNodes.length > 0 ? ( //[cite: 1, 3]
+          {sensorNodes.length > 0 ? (
             sensorNodes.map((node) => (
-              <SensorCard key={node.id} {...node} /> //[cite: 1, 3]
+              <SensorCard key={node.id} {...node} />
             ))
           ) : (
             <div className="col-span-full rounded-xl border border-dashed p-8 text-center text-gray-500">
-              Belum ada node sensor yang tersedia. {/*[cite: 1, 3] */}
+              Belum ada node sensor yang tersedia.
             </div>
           )}
         </div>
