@@ -360,7 +360,7 @@ export const generateAgronomicReasoning = (
       "HARI 3: Jika suhu udara tetap ekstrem, pasang jaring peneduh (paranet 50–60%) secara manual."
     );
     if (sensorDiag.temperature.status === "SUSPECT" || sensorDiag.humidity.status === "SUSPECT") {
-      recommendationSteps.push("CATATAN: Sensor suhu/kelembapan pada node ini terindikasi mencurigakan (lihat sensor_diagnostics) - sebaiknya verifikasi manual dengan termometer/higrometer genggam sebelum mengambil tindakan besar.");
+      recommendationSteps.push("CATATAN: Sensor suhu/kelembapan pada node ini terindikasi mencurigakan - sebaiknya verifikasi manual dengan termometer/higrometer genggam sebelum mengambil tindakan besar.");
     }
   } else if (isWetSoilNoRain) {
     // Scenario B: Overwatering / Sensor Anomaly / Drainage Block
@@ -496,7 +496,7 @@ export const generateAgronomicReasoning = (
   // Selalu ingatkan perawatan preventif sensor, bahkan saat status OK - karena ini
   // adalah permintaan eksplisit: penempatan/kondisi fisik sensor adalah faktor kesehatan data.
   if (sensorDiag.hasSuspectFault) {
-    farmerGuidance.push("• PENTING: Terdapat indikasi sensor bermasalah (lihat sensor_diagnostics). Segera periksa pemasangan fisik, kebersihan lensa/probe, dan koneksi kabel sensor terkait sebelum sepenuhnya mempercayai skor kesehatan ini.");
+    farmerGuidance.push("• PENTING: Terdapat indikasi sensor bermasalah. Segera periksa pemasangan fisik, kebersihan lensa/probe, dan koneksi kabel sensor terkait sebelum sepenuhnya mempercayai skor kesehatan ini.");
   } else {
     farmerGuidance.push("• Rutin cek fisik sensor setiap 1-2 minggu: pastikan probe tanah tertanam sempurna, lensa cahaya bebas debu/embun, dan tidak ada hewan/serangga yang bersarang di housing sensor.");
   }
